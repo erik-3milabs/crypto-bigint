@@ -16,8 +16,8 @@ impl<const LIMBS: usize> Int<LIMBS> {
         rhs: &NonZero<Self>,
     ) -> (Uint<{ LIMBS }>, Uint<{ LIMBS }>, ConstChoice) {
         // Step 1: split operands into signs, magnitudes and whether they are zero.
-        let (lhs_sgn, lhs_mag) = self.sign_and_magnitude();
-        let (rhs_sgn, rhs_mag) = rhs.sign_and_magnitude();
+        let (lhs_mag, lhs_sgn) = self.abs_sign();
+        let (rhs_mag, rhs_sgn) = rhs.abs_sign();
 
         // Step 2. Determine if the result should be negated.
         // This should be done if and only if lhs and rhs have opposing signs.
