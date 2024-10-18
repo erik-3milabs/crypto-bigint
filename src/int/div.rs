@@ -16,8 +16,8 @@ impl<const LIMBS: usize> Int<LIMBS> {
         rhs: &NonZero<Self>,
     ) -> (Uint<{ LIMBS }>, Uint<{ LIMBS }>, ConstChoice) {
         // Step 1: split operands into signs, magnitudes and whether they are zero.
-        let (lhs_sgn, lhs_mag) = self.sign_and_magnitude();
-        let (rhs_sgn, rhs_mag) = rhs.sign_and_magnitude();
+        let (lhs_mag, lhs_sgn) = self.abs_sign();
+        let (rhs_mag, rhs_sgn) = rhs.abs_sign();
 
         // Step 2. Determine if the result should be negated.
         // This should be done if and only if lhs and rhs have opposing signs.
@@ -37,7 +37,7 @@ impl<const LIMBS: usize> Int<LIMBS> {
     pub fn checked_div(&self, rhs: &Self) -> CtOption<Self> {
         NonZero::new(*rhs).and_then(|rhs| {
             let (quotient, _, opposing_signs) = self.checked_div_mod(&rhs);
-            Self::new_from_sign_and_magnitude(opposing_signs, quotient).into()
+            Self::new_from_abs_sign(quotient, opposing_signs).into()
         })
     }
 
@@ -74,7 +74,7 @@ impl<const LIMBS: usize> Int<LIMBS> {
             let quotient_sub_one = quotient.wrapping_add(&Uint::ONE);
             let quotient = Uint::select(&quotient, &quotient_sub_one, increment_quotient);
 
-            Self::new_from_sign_and_magnitude(opposing_signs, quotient).into()
+            Self::new_from_abs_sign(quotient, opposing_signs).into()
         })
     }
 
@@ -103,8 +103,8 @@ impl<const LIMBS: usize> Int<LIMBS> {
     /// );
     /// ```
     pub fn checked_div_mod_floor(&self, rhs: &Self) -> CtOption<(Self, Self)> {
-        let (lhs_sgn, lhs_mag) = self.sign_and_magnitude();
-        let (rhs_sgn, rhs_mag) = rhs.sign_and_magnitude();
+        let (lhs_mag, lhs_sgn) = self.abs_sign();
+        let (rhs_mag, rhs_sgn) = rhs.abs_sign();
         let opposing_signs = lhs_sgn.xor(rhs_sgn);
         NonZero::new(rhs_mag).and_then(|rhs_mag| {
             let (quotient, remainder) = lhs_mag.div_rem(&rhs_mag);
@@ -120,14 +120,10 @@ impl<const LIMBS: usize> Int<LIMBS> {
             let inv_remainder = rhs_mag.wrapping_sub(&remainder);
             let remainder = Uint::select(&remainder, &inv_remainder, modify);
 
-            CtOption::from(Int::new_from_sign_and_magnitude(opposing_signs, quotient)).and_then(
-                |quotient| {
-                    CtOption::from(Int::new_from_sign_and_magnitude(opposing_signs, remainder))
-                        .and_then(|remainder| {
-                            CtOption::new((quotient, remainder), Choice::from(1u8))
-                        })
-                },
-            )
+            CtOption::from(Int::new_from_abs_sign(quotient, opposing_signs)).and_then(|quotient| {
+                CtOption::from(Int::new_from_abs_sign(remainder, opposing_signs))
+                    .and_then(|remainder| CtOption::new((quotient, remainder), Choice::from(1u8)))
+            })
         })
     }
 }
