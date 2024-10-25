@@ -1,13 +1,14 @@
 //! Const-friendly decoding operations for [`Uint`]
 
+use crate::{Encoding, Limb, Word};
+
+use super::Uint;
+
 #[cfg(all(feature = "der", feature = "generic-array"))]
 mod der;
 
 #[cfg(feature = "rlp")]
 mod rlp;
-
-use super::Uint;
-use crate::{Encoding, Limb, Word};
 
 impl<const LIMBS: usize> Uint<LIMBS> {
     /// Create a new [`Uint`] from the provided big endian bytes.
@@ -156,6 +157,59 @@ impl<const LIMBS: usize> Uint<LIMBS> {
     }
 }
 
+
+/// Encode a [`Uint`] to a big endian byte array of the given size.
+pub(crate) const fn uint_to_be_bytes<const LIMBS: usize, const BYTES: usize>(
+    uint: &Uint<LIMBS>,
+) -> [u8; BYTES] {
+    if BYTES != LIMBS * Limb::BYTES {
+        panic!("BYTES != LIMBS * Limb::BYTES");
+    }
+
+    let mut ret = [0u8; BYTES];
+    let mut i = 0;
+
+    while i < LIMBS {
+        let limb_bytes = uint.limbs[LIMBS - i - 1].0.to_be_bytes();
+        let mut j = 0;
+
+        while j < Limb::BYTES {
+            ret[i * Limb::BYTES + j] = limb_bytes[j];
+            j += 1;
+        }
+
+        i += 1;
+    }
+
+    ret
+}
+
+/// Encode a [`Uint`] to a little endian byte array of the given size.
+pub(crate) const fn uint_to_le_bytes<const LIMBS: usize, const BYTES: usize>(
+    uint: &Uint<LIMBS>,
+) -> [u8; BYTES] {
+    if BYTES != LIMBS * Limb::BYTES {
+        panic!("BYTES != LIMBS * Limb::BYTES");
+    }
+
+    let mut ret = [0u8; BYTES];
+    let mut i = 0;
+
+    while i < LIMBS {
+        let limb_bytes = uint.limbs[i].0.to_le_bytes();
+        let mut j = 0;
+
+        while j < Limb::BYTES {
+            ret[i * Limb::BYTES + j] = limb_bytes[j];
+            j += 1;
+        }
+
+        i += 1;
+    }
+
+    ret
+}
+
 /// Decode a single nibble of upper or lower hex
 #[inline(always)]
 const fn decode_nibble(src: u8) -> u16 {
@@ -190,17 +244,16 @@ const fn decode_hex_byte(bytes: [u8; 2]) -> (u8, u16) {
 
 #[cfg(test)]
 mod tests {
-    use crate::Limb;
     use hex_literal::hex;
 
     #[cfg(feature = "alloc")]
-    use {crate::U128, alloc::format};
+    use {alloc::format, crate::U128};
 
-    #[cfg(target_pointer_width = "32")]
-    use crate::U64 as UintEx;
-
+    use crate::Limb;
     #[cfg(target_pointer_width = "64")]
     use crate::U128 as UintEx;
+    #[cfg(target_pointer_width = "32")]
+    use crate::U64 as UintEx;
 
     #[test]
     #[cfg(target_pointer_width = "32")]

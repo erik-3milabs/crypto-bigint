@@ -16,7 +16,7 @@ mod cmp;
 mod concat;
 mod div;
 pub(crate) mod div_limb;
-mod encoding;
+pub(crate) mod encoding;
 mod from;
 mod inv_mod;
 mod mul;
@@ -40,9 +40,9 @@ mod array;
 #[cfg(feature = "rand_core")]
 mod rand;
 
-use crate::{Bounded, Encoding, Integer, Limb, Word, Zero};
+use crate::{Bounded, Encoding, Integer, Limb, NonZero, Word, Zero};
 use core::fmt;
-use subtle::{Choice, ConditionallySelectable};
+use subtle::{Choice, ConditionallySelectable, CtOption};
 
 #[cfg(feature = "serde")]
 use serdect::serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -72,7 +72,7 @@ use zeroize::DefaultIsZeroes;
 #[derive(Copy, Clone, Hash)]
 pub struct Uint<const LIMBS: usize> {
     /// Inner limb array. Stored from least significant to most significant.
-    limbs: [Limb; LIMBS],
+    pub(crate) limbs: [Limb; LIMBS],
 }
 
 impl<const LIMBS: usize> Uint<LIMBS> {
@@ -166,6 +166,10 @@ impl<const LIMBS: usize> Uint<LIMBS> {
     /// Convert this [`Uint`] into its inner limbs.
     pub const fn to_limbs(self) -> [Limb; LIMBS] {
         self.limbs
+    }
+
+    pub fn to_nz(self) -> CtOption<NonZero<Self>> {
+        CtOption::new(NonZero(self), self.ct_is_nonzero().into())
     }
 }
 

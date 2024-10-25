@@ -1,9 +1,12 @@
 //! [`Uint`] bitwise and operations.
 
-use super::Uint;
-use crate::{Limb, Wrapping};
 use core::ops::{BitAnd, BitAndAssign};
+
 use subtle::{Choice, CtOption};
+
+use crate::{Limb, Wrapping};
+
+use super::Uint;
 
 impl<const LIMBS: usize> Uint<LIMBS> {
     /// Computes bitwise `a & b`.
@@ -14,6 +17,20 @@ impl<const LIMBS: usize> Uint<LIMBS> {
 
         while i < LIMBS {
             limbs[i] = self.limbs[i].bitand(rhs.limbs[i]);
+            i += 1;
+        }
+
+        Self { limbs }
+    }
+
+    /// Perform bitwise `AND` between `self` and the given [`Limb`], performing the `AND` operation
+    /// on every limb of `self`.
+    pub const fn bitand_limb(&self, rhs: Limb) -> Self {
+        let mut limbs = [Limb::ZERO; LIMBS];
+        let mut i = 0;
+
+        while i < LIMBS {
+            limbs[i] = self.limbs[i].bitand(rhs);
             i += 1;
         }
 

@@ -18,6 +18,12 @@ impl<const LIMBS: usize> Uint<LIMBS> {
 
     /// Perform wrapping negation.
     pub const fn wrapping_neg(&self) -> Self {
+        self.negc().0
+    }
+
+    /// Perform negation; additionally return the carry.
+    /// Note: the carry equals `Word::ZERO` when `self == Self::ZERO`, and `Word::MAX` otherwise.
+    pub const fn negc(&self) -> (Self, Word) {
         let mut ret = [Limb::ZERO; LIMBS];
         let mut carry = 1;
         let mut i = 0;
@@ -27,7 +33,7 @@ impl<const LIMBS: usize> Uint<LIMBS> {
             carry = r >> Limb::BITS;
             i += 1;
         }
-        Uint::new(ret)
+        (Uint::new(ret), carry.wrapping_add(!0) as Word)
     }
 }
 

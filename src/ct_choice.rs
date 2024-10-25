@@ -29,6 +29,18 @@ impl CtChoice {
         Self(value.wrapping_neg())
     }
 
+    #[inline]
+    pub(crate) const fn from_word_msb(value: Word) -> Self {
+        Self::from_lsb(value >> (Word::BITS - 1))
+    }
+
+    #[inline]
+    pub(crate) const fn from_usize_lsb(value: usize) -> Self {
+        debug_assert!(value == 0 || value == 1);
+        #[allow(trivial_numeric_casts)]
+        Self((value as Word).wrapping_neg())
+    }
+
     /// Returns the truthy value if `value != 0`, and the falsy value otherwise.
     pub(crate) const fn from_usize_being_nonzero(value: usize) -> Self {
         const HI_BIT: u32 = usize::BITS - 1;
@@ -56,6 +68,14 @@ impl CtChoice {
 
     pub(crate) const fn and(&self, other: Self) -> Self {
         Self(self.0 & other.0)
+    }
+
+    pub(crate) const fn xor(&self, other: Self) -> Self {
+        Self(self.0 ^ other.0)
+    }
+
+    pub(crate) const fn ne(&self, other: Self) -> Self {
+        self.xor(other)
     }
 
     /// Return `b` if `self` is truthy, otherwise return `a`.
@@ -91,8 +111,9 @@ impl From<CtChoice> for bool {
 
 #[cfg(test)]
 mod tests {
-    use super::CtChoice;
     use crate::Word;
+
+    use super::CtChoice;
 
     #[test]
     fn select() {

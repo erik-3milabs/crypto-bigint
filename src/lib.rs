@@ -156,6 +156,34 @@
 #[macro_use]
 extern crate alloc;
 
+#[cfg(feature = "rand_core")]
+pub use rand_core;
+#[cfg(feature = "rlp")]
+pub use rlp;
+pub use subtle;
+#[cfg(feature = "zeroize")]
+pub use zeroize;
+
+#[cfg(feature = "generic-array")]
+pub use {
+    crate::array::{ArrayDecoding, ArrayEncoding, ByteArray},
+    generic_array::{self, typenum::consts},
+};
+
+pub use crate::{
+    checked::Checked,
+    ct_choice::CtChoice,
+    int::*,
+    limb::{Limb, WideWord, Word},
+    non_zero::NonZero,
+    traits::*,
+    uint::*,
+    uint::div_limb::Reciprocal,
+    wrapping::Wrapping,
+};
+#[cfg(feature = "alloc")]
+pub use crate::boxed::uint::BoxedUint;
+
 #[macro_use]
 mod macros;
 
@@ -165,53 +193,16 @@ mod array;
 mod boxed;
 mod checked;
 mod ct_choice;
+mod int;
 mod limb;
 mod non_zero;
 mod traits;
 mod uint;
 mod wrapping;
 
-pub use crate::{
-    checked::Checked,
-    ct_choice::CtChoice,
-    limb::{Limb, WideWord, Word},
-    non_zero::NonZero,
-    traits::*,
-    uint::div_limb::Reciprocal,
-    uint::*,
-    wrapping::Wrapping,
-};
-pub use subtle;
-
-#[cfg(feature = "alloc")]
-pub use crate::boxed::uint::BoxedUint;
-
-#[cfg(feature = "generic-array")]
-pub use {
-    crate::array::{ArrayDecoding, ArrayEncoding, ByteArray},
-    generic_array::{self, typenum::consts},
-};
-
-#[cfg(feature = "rand_core")]
-pub use rand_core;
-
-#[cfg(feature = "rlp")]
-pub use rlp;
-
-#[cfg(feature = "zeroize")]
-pub use zeroize;
-
 /// Import prelude for this crate: includes important traits.
 pub mod prelude {
-    pub use crate::traits::*;
-
     #[cfg(feature = "generic-array")]
     pub use crate::array::{ArrayDecoding, ArrayEncoding};
-}
-
-#[cfg(sidefuzz)]
-#[no_mangle]
-pub extern "C" fn fuzz() {
-    let input = sidefuzz::fetch_input(32); // 32 bytes of of fuzzing input as a &[u8]
-    sidefuzz::black_box(my_hopefully_constant_fn(input));
+    pub use crate::traits::*;
 }

@@ -73,7 +73,7 @@ mod tests {
                 ];
 
                 for special in &moduli {
-                    let p = &NonZero::new(Uint::ZERO.wrapping_sub(&Uint::from_word(special.0)))
+                    let p = &NonZero::new(Uint::ZERO.wrapping_sub(&Uint::from_word(special.0.0)))
                         .unwrap();
 
                     let minus_one = p.wrapping_sub(&Uint::ONE);

@@ -2,10 +2,13 @@
 //!
 //! By default these are all constant-time and use the `subtle` crate.
 
-use super::Uint;
-use crate::{CtChoice, Limb};
 use core::cmp::Ordering;
+
 use subtle::{Choice, ConstantTimeEq, ConstantTimeGreater, ConstantTimeLess};
+
+use crate::{CtChoice, Limb};
+
+use super::Uint;
 
 impl<const LIMBS: usize> Uint<LIMBS> {
     /// Return `b` if `c` is truthy, otherwise return `a`.
@@ -70,6 +73,12 @@ impl<const LIMBS: usize> Uint<LIMBS> {
         // there are no savings compared to just calling `sbb()` directly.
         let (_res, borrow) = lhs.sbb(rhs, Limb::ZERO);
         CtChoice::from_mask(borrow.0)
+    }
+
+    /// Returns the truthy value if `self <= rhs` and the falsy value otherwise.
+    #[inline]
+    pub(crate) const fn ct_lte(lhs: &Self, rhs: &Self) -> CtChoice {
+        Self::ct_gt(lhs, rhs).not()
     }
 
     /// Returns the truthy value if `self >= rhs` and the falsy value otherwise.
@@ -168,9 +177,11 @@ impl<const LIMBS: usize> PartialEq for Uint<LIMBS> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Integer, Zero, U128};
     use core::cmp::Ordering;
+
     use subtle::{ConstantTimeEq, ConstantTimeGreater, ConstantTimeLess};
+
+    use crate::{Integer, U128, Zero};
 
     #[test]
     fn is_zero() {

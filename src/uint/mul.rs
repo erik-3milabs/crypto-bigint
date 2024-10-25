@@ -1,8 +1,10 @@
 //! [`Uint`] addition operations.
 
-use crate::{Checked, CheckedMul, Concat, ConcatMixed, Limb, Uint, WideWord, Word, Wrapping, Zero};
 use core::ops::{Mul, MulAssign};
+
 use subtle::CtOption;
+
+use crate::{Checked, CheckedMul, Concat, ConcatMixed, Limb, Uint, WideWord, Word, Wrapping, Zero};
 
 impl<const LIMBS: usize> Uint<LIMBS> {
     /// Multiply `self` by `rhs`, returning a concatenated "wide" result.
@@ -15,6 +17,17 @@ impl<const LIMBS: usize> Uint<LIMBS> {
     {
         let (lo, hi) = self.mul_wide(rhs);
         hi.concat_mixed(&lo)
+    }
+
+    pub fn widening_mul<const RHS_LIMBS: usize, const WIDE_LIMBS: usize>(
+        &self,
+        rhs: &Uint<RHS_LIMBS>,
+    ) -> Uint<WIDE_LIMBS>
+    where
+        Self: ConcatMixed<Uint<RHS_LIMBS>, MixedOutput=Uint<WIDE_LIMBS>>,
+    {
+        let (lo, hi) = self.mul_wide(rhs);
+        Uint::concat_mixed(&lo, &hi)
     }
 
     /// Compute "wide" multiplication, with a product twice the size of the input.
@@ -322,7 +335,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{CheckedMul, Zero, U128, U192, U256, U64};
+    use crate::{CheckedMul, U128, U192, U256, U64, Zero};
 
     #[test]
     fn mul_wide_zero_and_one() {

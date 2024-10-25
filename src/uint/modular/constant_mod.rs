@@ -2,19 +2,18 @@ use core::{fmt::Debug, marker::PhantomData};
 
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
-use crate::{Limb, Uint, Zero};
-
-use super::{div_by_2::div_by_2, reduction::montgomery_reduction, Retrieve};
-
-#[cfg(feature = "rand_core")]
-use crate::{rand_core::CryptoRngCore, NonZero, Random, RandomMod};
-
 #[cfg(feature = "serde")]
 use {
     crate::Encoding,
-    serdect::serde::de::Error,
     serdect::serde::{Deserialize, Deserializer, Serialize, Serializer},
+    serdect::serde::de::Error,
 };
+
+use crate::{Limb, Uint, Zero};
+#[cfg(feature = "rand_core")]
+use crate::{NonZero, rand_core::CryptoRngCore, Random, RandomMod};
+
+use super::{div_by_2::div_by_2, reduction::montgomery_reduction, Retrieve};
 
 /// Additions between residues with a constant modulus
 mod const_add;
@@ -32,8 +31,6 @@ mod const_sub;
 /// Macros to remove the boilerplate code when dealing with constant moduli.
 #[macro_use]
 mod macros;
-
-pub use macros::*;
 
 /// The parameters to efficiently go to and from the Montgomery form for a given odd modulus. An easy way to generate these parameters is using the `impl_modulus!` macro. These parameters are constant, so they cannot be set at runtime.
 ///

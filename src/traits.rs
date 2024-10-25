@@ -1,5 +1,6 @@
 //! Traits provided by this crate
 
+use core::fmt;
 use crate::{Limb, NonZero};
 use core::fmt::Debug;
 use core::ops::{BitAnd, BitOr, BitXor, Div, Not, Rem, Shl, Shr};
@@ -93,6 +94,105 @@ pub trait Zero: ConstantTimeEq + Sized {
 pub trait Random: Sized {
     /// Generate a cryptographically secure random value.
     fn random(rng: &mut impl CryptoRngCore) -> Self;
+}
+
+
+/// Possible errors of the methods in [`RandomBits`] trait.
+#[cfg(feature = "rand_core")]
+#[derive(Debug)]
+pub enum RandomBitsError {
+    /// An error of the internal RNG library.
+    RandCore(rand_core::Error),
+    /// The requested `bits_precision` does not match the size of the integer
+    /// corresponding to the type (in the cases where this is set in compile time).
+    BitsPrecisionMismatch {
+        /// The requested precision.
+        bits_precision: u32,
+        /// The compile-time size of the integer.
+        integer_bits: u32,
+    },
+    /// The requested `bit_length` is larger than `bits_precision`.
+    BitLengthTooLarge {
+        /// The requested bit length of the random number.
+        bit_length: u32,
+        /// The requested precision.
+        bits_precision: u32,
+    },
+}
+
+#[cfg(feature = "rand_core")]
+impl fmt::Display for RandomBitsError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::RandCore(err) => write!(f, "{}", err),
+            Self::BitsPrecisionMismatch {
+                bits_precision,
+                integer_bits,
+            } => write!(
+                f,
+                concat![
+                "The requested `bits_precision` ({}) does not match ",
+                "the size of the integer corresponding to the type ({})"
+                ],
+                bits_precision, integer_bits
+            ),
+            Self::BitLengthTooLarge {
+                bit_length,
+                bits_precision,
+            } => write!(
+                f,
+                "The requested `bit_length` ({}) is larger than `bits_precision` ({}).",
+                bit_length, bits_precision
+            ),
+        }
+    }
+}
+
+#[cfg(feature = "rand_core")]
+impl core::error::Error for RandomBitsError {}
+
+/// Random bits generation support.
+#[cfg(feature = "rand_core")]
+pub trait RandomBits: Sized {
+    /// Generate a cryptographically secure random value in range `[0, 2^bit_length)`.
+    ///
+    /// A wrapper for [`RandomBits::try_random_bits`] that panics on error.
+    fn random_bits(rng: &mut impl CryptoRngCore, bit_length: u32) -> Self {
+        Self::try_random_bits(rng, bit_length).expect("try_random_bits() failed")
+    }
+
+    /// Generate a cryptographically secure random value in range `[0, 2^bit_length)`.
+    ///
+    /// This method is variable time wrt `bit_length`.
+    fn try_random_bits(
+        rng: &mut impl CryptoRngCore,
+        bit_length: u32,
+    ) -> Result<Self, RandomBitsError>;
+
+    /// Generate a cryptographically secure random value in range `[0, 2^bit_length)`,
+    /// returning an integer with the closest available size to `bits_precision`
+    /// (if the implementing type supports runtime sizing).
+    ///
+    /// A wrapper for [`RandomBits::try_random_bits_with_precision`] that panics on error.
+    fn random_bits_with_precision(
+        rng: &mut impl CryptoRngCore,
+        bit_length: u32,
+        bits_precision: u32,
+    ) -> Self {
+        Self::try_random_bits_with_precision(rng, bit_length, bits_precision)
+            .expect("try_random_bits_with_precision() failed")
+    }
+
+    /// Generate a cryptographically secure random value in range `[0, 2^bit_length)`,
+    /// returning an integer with the closest available size to `bits_precision`
+    /// (if the implementing type supports runtime sizing).
+    ///
+    /// This method is variable time wrt `bit_length`.
+    fn try_random_bits_with_precision(
+        rng: &mut impl CryptoRngCore,
+        bit_length: u32,
+        bits_precision: u32,
+    ) -> Result<Self, RandomBitsError>;
 }
 
 /// Modular random number generation support.
