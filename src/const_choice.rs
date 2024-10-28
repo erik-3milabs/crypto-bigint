@@ -33,18 +33,6 @@ impl ConstChoice {
         self.0
     }
 
-    #[inline]
-    #[cfg(target_pointer_width = "32")]
-    pub(crate) const fn as_word_mask(&self) -> Word {
-        self.as_u32_mask()
-    }
-
-    #[inline]
-    #[cfg(target_pointer_width = "64")]
-    pub(crate) const fn as_word_mask(&self) -> Word {
-        self.as_u64_mask()
-    }
-
     /// Returns the truthy value if `value == Word::MAX`, and the falsy value if `value == 0`.
     /// Panics for other values.
     #[inline]
@@ -402,7 +390,7 @@ impl<const LIMBS: usize> ConstCtOption<Uint<LIMBS>> {
     /// Returns the contained value, interpreting the underlying [`Uint`] value as an [`Int`].
     #[inline]
     pub const fn as_int(&self) -> ConstCtOption<Int<LIMBS>> {
-        ConstCtOption::new(Int::new_from_uint(self.value), self.is_some)
+        ConstCtOption::new(self.value.as_int(), self.is_some)
     }
 }
 

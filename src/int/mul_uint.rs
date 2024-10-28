@@ -37,7 +37,7 @@ impl<const LIMBS: usize> Int<LIMBS> {
         let product_abs = lhs_abs.widening_mul(rhs);
 
         // always fits
-        Int::new_from_uint(product_abs.wrapping_neg_if(lhs_sign))
+        product_abs.wrapping_neg_if(lhs_sign).as_int()
     }
 }
 

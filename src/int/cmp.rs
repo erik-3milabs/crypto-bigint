@@ -1,7 +1,6 @@
 //! [`Int`] comparisons.
 //!
-//! By default, these are all constant-time and use the `subtle` crate.
-#![allow(dead_code)]
+//! By default, these are all constant-time.
 
 use core::cmp::Ordering;
 
@@ -22,11 +21,6 @@ impl<const LIMBS: usize> Int<LIMBS> {
         Uint::is_nonzero(&self.0)
     }
 
-    /// Returns the truthy value if `self` is odd or the falsy value otherwise.
-    pub(crate) const fn is_odd(&self) -> ConstChoice {
-        Uint::is_odd(&self.0)
-    }
-
     /// Returns the truthy value if `self == rhs` or the falsy value otherwise.
     #[inline]
     pub(crate) const fn eq(lhs: &Self, rhs: &Self) -> ConstChoice {
@@ -39,22 +33,10 @@ impl<const LIMBS: usize> Int<LIMBS> {
         Uint::lt(&lhs.invert_msb().0, &rhs.invert_msb().0)
     }
 
-    /// Returns the truthy value if `self <= rhs` and the falsy value otherwise.
-    #[inline]
-    pub(crate) const fn lte(lhs: &Self, rhs: &Self) -> ConstChoice {
-        Self::gt(lhs, rhs).not()
-    }
-
     /// Returns the truthy value if `self > rhs` and the falsy value otherwise.
     #[inline]
     pub(crate) const fn gt(lhs: &Self, rhs: &Self) -> ConstChoice {
         Uint::gt(&lhs.invert_msb().0, &rhs.invert_msb().0)
-    }
-
-    /// Returns the truthy value if `self >= rhs` and the falsy value otherwise.
-    #[inline]
-    pub(crate) const fn gte(lhs: &Self, rhs: &Self) -> ConstChoice {
-        Self::lt(lhs, rhs).not()
     }
 
     /// Returns the ordering between `self` and `rhs` as an i8.
@@ -123,7 +105,7 @@ impl<const LIMBS: usize> PartialEq for Int<LIMBS> {
 mod tests {
     use subtle::{ConstantTimeGreater, ConstantTimeLess};
 
-    use crate::{Int, I128, U128};
+    use crate::I128;
 
     #[test]
     fn test_is_nonzero() {
@@ -132,18 +114,6 @@ mod tests {
         assert_eq!(I128::ZERO.is_nonzero().to_u8(), 0u8);
         assert_eq!(I128::MINUS_ONE.is_nonzero().to_u8(), 1u8);
         assert_eq!(I128::MAX.is_nonzero().to_u8(), 1u8);
-    }
-
-    #[test]
-    fn test_is_odd() {
-        let two = I128::new_from_uint(U128::from(2u32));
-        assert_eq!(I128::MAX.is_odd().to_u8(), 1u8);
-        assert_eq!(two.is_odd().to_u8(), 0u8);
-        assert_eq!(I128::ONE.is_odd().to_u8(), 1u8);
-        assert_eq!(I128::ZERO.is_odd().to_u8(), 0u8);
-        assert_eq!(I128::MINUS_ONE.is_odd().to_u8(), 1u8);
-        assert_eq!(two.neg().unwrap().is_odd().to_u8(), 0u8);
-        assert_eq!(I128::MAX.is_odd().to_u8(), 1u8);
     }
 
     #[test]
@@ -207,25 +177,6 @@ mod tests {
     }
 
     #[test]
-    fn gte() {
-        let a = I128::MIN;
-        let b = I128::ZERO;
-        let c = I128::MAX;
-
-        assert!(bool::from(Int::gte(&b, &a)));
-        assert!(bool::from(Int::gte(&c, &a)));
-        assert!(bool::from(Int::gte(&c, &b)));
-
-        assert!(bool::from(Int::gte(&a, &a)));
-        assert!(bool::from(Int::gte(&b, &b)));
-        assert!(bool::from(Int::gte(&c, &c)));
-
-        assert!(!bool::from(Int::gte(&a, &b)));
-        assert!(!bool::from(Int::gte(&a, &c)));
-        assert!(!bool::from(Int::gte(&b, &c)));
-    }
-
-    #[test]
     fn ct_lt() {
         let a = I128::ZERO;
         let b = I128::ONE;
@@ -242,24 +193,5 @@ mod tests {
         assert!(!bool::from(b.ct_lt(&a)));
         assert!(!bool::from(c.ct_lt(&a)));
         assert!(!bool::from(c.ct_lt(&b)));
-    }
-
-    #[test]
-    fn lte() {
-        let a = I128::ZERO;
-        let b = I128::ONE;
-        let c = I128::MAX;
-
-        assert!(bool::from(Int::lte(&a, &b)));
-        assert!(bool::from(Int::lte(&a, &c)));
-        assert!(bool::from(Int::lte(&b, &c)));
-
-        assert!(bool::from(Int::lte(&a, &a)));
-        assert!(bool::from(Int::lte(&b, &b)));
-        assert!(bool::from(Int::lte(&c, &c)));
-
-        assert!(!bool::from(Int::lte(&b, &a)));
-        assert!(!bool::from(Int::lte(&c, &a)));
-        assert!(!bool::from(Int::lte(&c, &b)));
     }
 }
