@@ -48,8 +48,8 @@ impl<const LIMBS: usize> Int<LIMBS> {
 
     /// Perform division.
     /// Note: this operation rounds towards zero, truncating any fractional part of the exact result.
-    pub fn div_uint(&self, rhs: &Uint<LIMBS>) -> CtOption<Self> {
-        NonZero::new(*rhs).map(|rhs| self.div_rem_uint(&rhs).0)
+    pub const fn div_uint(&self, rhs: &NonZero<Uint<LIMBS>>) -> Self {
+        self.div_rem_uint(rhs).0
     }
 
     /// Perform checked division.
