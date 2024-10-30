@@ -13,11 +13,7 @@ use zeroize::DefaultIsZeroes;
 #[cfg(feature = "extra-sizes")]
 pub use extra_sizes::*;
 
-use crate::{
-    modular::{MontyForm, SafeGcdInverter},
-    Bounded, ConstCtOption, ConstZero, Constants, Encoding, FixedInteger, Int, Integer, Limb,
-    NonZero, Odd, PrecomputeInverter, PrecomputeInverterWithAdjuster, Word,
-};
+use crate::{modular::{MontyForm, SafeGcdInverter}, Bounded, ConstCtOption, ConstZero, Constants, Encoding, FixedInteger, Int, Integer, Limb, NonZero, Odd, PrecomputeInverter, PrecomputeInverterWithAdjuster, Word, ConstChoice};
 
 #[macro_use]
 mod macros;
@@ -189,8 +185,17 @@ impl<const LIMBS: usize> Uint<LIMBS> {
     }
 
     /// Interpret the data in this type as an [`Int`] instead.
+    ///
+    /// Note: this is a reinterpretation. For conversion, see [`Uint::to_int`].
     pub const fn as_int(&self) -> Int<LIMBS> {
         Int::from_bits(*self)
+    }
+
+    /// Convert the data in this type to be an [`Int`] instead.
+    ///
+    /// Note: this is a conversion. For bit-value reinterpretation, see [`Uint::as_int`].
+    pub const fn to_int(&self) -> ConstCtOption<Int<LIMBS>> {
+        Int::new_from_abs_sign(self.clone(), ConstChoice::FALSE)
     }
 }
 
