@@ -13,7 +13,11 @@ use zeroize::DefaultIsZeroes;
 #[cfg(feature = "extra-sizes")]
 pub use extra_sizes::*;
 
-use crate::{modular::{MontyForm, SafeGcdInverter}, Bounded, ConstCtOption, ConstZero, Constants, Encoding, FixedInteger, Int, Integer, Limb, NonZero, Odd, PrecomputeInverter, PrecomputeInverterWithAdjuster, Word, ConstChoice};
+use crate::{
+    modular::{MontyForm, SafeGcdInverter},
+    Bounded, ConstChoice, ConstCtOption, ConstZero, Constants, Encoding, FixedInteger, Int,
+    Integer, Limb, NonZero, Odd, PrecomputeInverter, PrecomputeInverterWithAdjuster, Word,
+};
 
 #[macro_use]
 mod macros;
@@ -195,7 +199,7 @@ impl<const LIMBS: usize> Uint<LIMBS> {
     ///
     /// Note: this is a conversion. For bit-value reinterpretation, see [`Uint::as_int`].
     pub const fn to_int(&self) -> ConstCtOption<Int<LIMBS>> {
-        Int::new_from_abs_sign(self.clone(), ConstChoice::FALSE)
+        Int::new_from_abs_sign(*self, ConstChoice::FALSE)
     }
 }
 
@@ -470,7 +474,7 @@ mod tests {
 
     #[cfg(feature = "serde")]
     use crate::U64;
-    use crate::{Encoding, U128};
+    use crate::{ConstChoice, Encoding, I128, U128};
 
     #[cfg(target_pointer_width = "64")]
     #[test]
@@ -545,6 +549,23 @@ mod tests {
 
         let select_1 = U128::conditional_select(&a, &b, 1.into());
         assert_eq!(b, select_1);
+    }
+
+    #[test]
+    fn as_int() {
+        assert_eq!(U128::ZERO.as_int(), I128::ZERO);
+        assert_eq!(U128::ONE.as_int(), I128::ONE);
+        assert_eq!(U128::MAX.as_int(), I128::MINUS_ONE);
+        assert_eq!(U128::MAX.shr(1).as_int(), I128::MAX);
+        assert_eq!((U128::MAX ^ U128::MAX.shr(1)).as_int(), I128::MIN);
+    }
+
+    #[test]
+    fn to_int() {
+        assert_eq!(U128::ZERO.to_int().unwrap(), I128::ZERO);
+        assert_eq!(U128::ONE.to_int().unwrap(), I128::ONE);
+        assert_eq!(U128::MAX.shr(1).as_int(), I128::MAX);
+        assert_eq!(U128::MAX.to_int().is_some(), ConstChoice::FALSE);
     }
 
     #[cfg(feature = "serde")]
