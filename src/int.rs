@@ -140,7 +140,7 @@ impl<const LIMBS: usize> Int<LIMBS> {
     ///
     /// Returns some if the original value is odd, and false otherwise.
     pub const fn to_odd(self) -> ConstCtOption<Odd<Self>> {
-        ConstCtOption::new(Odd(self), self.0.is_odd())
+        ConstCtOption::new(Odd(self), self.is_odd())
     }
 
     /// Interpret the data in this type as a [`Uint`] instead.
@@ -149,12 +149,12 @@ impl<const LIMBS: usize> Int<LIMBS> {
     }
 
     /// Whether this [`Int`] is equal to `Self::MIN`.
-    pub fn is_min(&self) -> ConstChoice {
+    pub const fn is_min(&self) -> ConstChoice {
         Self::eq(self, &Self::MIN)
     }
 
     /// Whether this [`Int`] is equal to `Self::MAX`.
-    pub fn is_max(&self) -> ConstChoice {
+    pub const fn is_max(&self) -> ConstChoice {
         Self::eq(self, &Self::MAX)
     }
 

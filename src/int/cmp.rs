@@ -21,6 +21,12 @@ impl<const LIMBS: usize> Int<LIMBS> {
         Uint::is_nonzero(&self.0)
     }
 
+    /// Returns the truthy value if `self` is odd or the falsy value otherwise.
+    /// TODO: remove once `impl Integer for Int` is ready.
+    pub const fn is_odd(&self) -> ConstChoice {
+        self.0.is_odd()
+    }
+
     /// Returns the truthy value if `self == rhs` or the falsy value otherwise.
     #[inline]
     pub(crate) const fn eq(lhs: &Self, rhs: &Self) -> ConstChoice {
