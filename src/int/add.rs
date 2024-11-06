@@ -8,7 +8,7 @@ use subtle::{Choice, CtOption};
 use crate::{Checked, CheckedAdd, ConstChoice, Int, Wrapping};
 
 impl<const LIMBS: usize> Int<LIMBS> {
-    /// Perform checked addition.
+    /// Perform addition, raising the `overflow` flag on overflow.
     pub const fn overflowing_add(&self, rhs: &Self) -> (Self, ConstChoice) {
         // Step 1. add operands
         let res = Self(self.0.wrapping_add(&rhs.0));
