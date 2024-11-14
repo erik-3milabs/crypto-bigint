@@ -444,8 +444,11 @@ pub trait MulMod<Rhs = Self> {
 
 /// Compute `1 / self mod p`.
 pub trait InvMod: Sized {
+    type Modulus: Sized;
+    type Output: Sized;
+
     /// Compute `1 / self mod p`.
-    fn inv_mod(&self, p: &Self) -> CtOption<Self>;
+    fn inv_mod(&self, p: &Self::Modulus) -> CtOption<Self::Output>;
 }
 
 /// Checked addition.
