@@ -1,10 +1,10 @@
 //! [`Int`] division operations.
 
-use core::ops::Div;
+use core::ops::{Div, DivAssign, Rem, RemAssign};
 
 use subtle::CtOption;
 
-use crate::{CheckedDiv, ConstChoice, ConstCtOption, Int, NonZero, Uint};
+use crate::{CheckedDiv, ConstChoice, ConstCtOption, Int, NonZero, Uint, Wrapping};
 
 /// Checked division operations.
 impl<const LIMBS: usize> Int<LIMBS> {
@@ -167,6 +167,10 @@ impl<const LIMBS: usize> Int<LIMBS> {
     }
 }
 
+//
+// Division by an Int
+//
+
 impl<const LIMBS: usize> CheckedDiv for Int<LIMBS> {
     fn checked_div(&self, rhs: &Int<LIMBS>) -> CtOption<Self> {
         self.checked_div(rhs)
@@ -202,6 +206,150 @@ impl<const LIMBS: usize> Div<NonZero<Int<LIMBS>>> for Int<LIMBS> {
 
     fn div(self, rhs: NonZero<Int<LIMBS>>) -> Self::Output {
         self.checked_div(&rhs)
+    }
+}
+
+impl<const LIMBS: usize> DivAssign<&NonZero<Int<LIMBS>>> for Int<LIMBS> {
+    fn div_assign(&mut self, rhs: &NonZero<Int<LIMBS>>) {
+        *self /= *rhs
+    }
+}
+
+impl<const LIMBS: usize> DivAssign<NonZero<Int<LIMBS>>> for Int<LIMBS> {
+    fn div_assign(&mut self, rhs: NonZero<Int<LIMBS>>) {
+        *self = (*self / rhs).expect("cannot represent positive equivalent of Int::MIN as int");
+    }
+}
+
+impl<const LIMBS: usize> Div<NonZero<Int<LIMBS>>> for Wrapping<Int<LIMBS>> {
+    type Output = Wrapping<Int<LIMBS>>;
+
+    fn div(self, rhs: NonZero<Int<LIMBS>>) -> Self::Output {
+        Wrapping((self.0 / rhs).expect("cannot represent positive equivalent of Int::MIN as int"))
+    }
+}
+
+impl<const LIMBS: usize> Div<NonZero<Int<LIMBS>>> for &Wrapping<Int<LIMBS>> {
+    type Output = Wrapping<Int<LIMBS>>;
+
+    fn div(self, rhs: NonZero<Int<LIMBS>>) -> Self::Output {
+        *self / rhs
+    }
+}
+
+impl<const LIMBS: usize> Div<&NonZero<Int<LIMBS>>> for &Wrapping<Int<LIMBS>> {
+    type Output = Wrapping<Int<LIMBS>>;
+
+    fn div(self, rhs: &NonZero<Int<LIMBS>>) -> Self::Output {
+        *self / *rhs
+    }
+}
+
+impl<const LIMBS: usize> Div<&NonZero<Int<LIMBS>>> for Wrapping<Int<LIMBS>> {
+    type Output = Wrapping<Int<LIMBS>>;
+
+    fn div(self, rhs: &NonZero<Int<LIMBS>>) -> Self::Output {
+        self / *rhs
+    }
+}
+
+impl<const LIMBS: usize> DivAssign<&NonZero<Int<LIMBS>>> for Wrapping<Int<LIMBS>> {
+    fn div_assign(&mut self, rhs: &NonZero<Int<LIMBS>>) {
+        *self = Wrapping((self.0 / rhs).expect("cannot represent positive equivalent of Int::MIN as int"));
+    }
+}
+
+impl<const LIMBS: usize> DivAssign<NonZero<Int<LIMBS>>> for Wrapping<Int<LIMBS>> {
+    fn div_assign(&mut self, rhs: NonZero<Int<LIMBS>>) {
+        *self /= &rhs;
+    }
+}
+
+impl<const LIMBS: usize> Rem<&NonZero<Int<LIMBS>>> for &Int<LIMBS> {
+    type Output = Int<LIMBS>;
+
+    fn rem(self, rhs: &NonZero<Int<LIMBS>>) -> Self::Output {
+        *self % *rhs
+    }
+}
+
+impl<const LIMBS: usize> Rem<&NonZero<Int<LIMBS>>> for Int<LIMBS> {
+    type Output = Int<LIMBS>;
+
+    fn rem(self, rhs: &NonZero<Int<LIMBS>>) -> Self::Output {
+        self % *rhs
+    }
+}
+
+impl<const LIMBS: usize> Rem<NonZero<Int<LIMBS>>> for &Int<LIMBS> {
+    type Output = Int<LIMBS>;
+
+    fn rem(self, rhs: NonZero<Int<LIMBS>>) -> Self::Output {
+        *self % rhs
+    }
+}
+
+impl<const LIMBS: usize> Rem<NonZero<Int<LIMBS>>> for Int<LIMBS> {
+    type Output = Int<LIMBS>;
+
+    fn rem(self, rhs: NonZero<Int<LIMBS>>) -> Self::Output {
+        Self::rem(&self, &rhs)
+    }
+}
+
+impl<const LIMBS: usize> RemAssign<&NonZero<Int<LIMBS>>> for Int<LIMBS> {
+    fn rem_assign(&mut self, rhs: &NonZero<Int<LIMBS>>) {
+        *self %= *rhs
+    }
+}
+
+impl<const LIMBS: usize> RemAssign<NonZero<Int<LIMBS>>> for Int<LIMBS> {
+    fn rem_assign(&mut self, rhs: NonZero<Int<LIMBS>>) {
+        *self = *self % rhs;
+    }
+}
+
+impl<const LIMBS: usize> Rem<NonZero<Int<LIMBS>>> for Wrapping<Int<LIMBS>> {
+    type Output = Wrapping<Int<LIMBS>>;
+
+    fn rem(self, rhs: NonZero<Int<LIMBS>>) -> Self::Output {
+        Wrapping(self.0 % rhs)
+    }
+}
+
+impl<const LIMBS: usize> Rem<NonZero<Int<LIMBS>>> for &Wrapping<Int<LIMBS>> {
+    type Output = Wrapping<Int<LIMBS>>;
+
+    fn rem(self, rhs: NonZero<Int<LIMBS>>) -> Self::Output {
+        *self % rhs
+    }
+}
+
+impl<const LIMBS: usize> Rem<&NonZero<Int<LIMBS>>> for &Wrapping<Int<LIMBS>> {
+    type Output = Wrapping<Int<LIMBS>>;
+
+    fn rem(self, rhs: &NonZero<Int<LIMBS>>) -> Self::Output {
+        *self % *rhs
+    }
+}
+
+impl<const LIMBS: usize> Rem<&NonZero<Int<LIMBS>>> for Wrapping<Int<LIMBS>> {
+    type Output = Wrapping<Int<LIMBS>>;
+
+    fn rem(self, rhs: &NonZero<Int<LIMBS>>) -> Self::Output {
+        self % *rhs
+    }
+}
+
+impl<const LIMBS: usize> RemAssign<NonZero<Int<LIMBS>>> for Wrapping<Int<LIMBS>> {
+    fn rem_assign(&mut self, rhs: NonZero<Int<LIMBS>>) {
+        *self %= &rhs;
+    }
+}
+
+impl<const LIMBS: usize> RemAssign<&NonZero<Int<LIMBS>>> for Wrapping<Int<LIMBS>> {
+    fn rem_assign(&mut self, rhs: &NonZero<Int<LIMBS>>) {
+        *self = Wrapping(self.0 % rhs)
     }
 }
 
