@@ -80,6 +80,9 @@ impl BoxedUint {
 }
 
 impl InvMod for BoxedUint {
+    type Modulus = Self;
+    type Output = Self;
+
     fn inv_mod(&self, modulus: &Self) -> CtOption<Self> {
         self.inv_mod(modulus)
     }
