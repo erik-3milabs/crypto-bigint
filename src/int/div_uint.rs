@@ -1,11 +1,9 @@
-//! [`Int`] divide by [`Uint`] operations.
-use core::ops::Div;
+//! Operations related to dividing an [`Int`] by a [`Uint`].
+use core::ops::{Div, DivAssign, Rem, RemAssign};
 
-use subtle::{Choice, CtOption};
+use crate::{ConstChoice, Int, NonZero, Uint, Wrapping};
 
-use crate::{ConstChoice, Int, NonZero, Uint};
-
-/// Operations related to dividing an [`Int`] by a [`Uint`].
+/// Checked division operations.
 impl<const LIMBS: usize> Int<LIMBS> {
     #[inline]
     /// Base div_rem operation on dividing an [`Int`] by a [`Uint`].
@@ -15,13 +13,8 @@ impl<const LIMBS: usize> Int<LIMBS> {
         &self,
         rhs: &NonZero<Uint<LIMBS>>,
     ) -> (Uint<{ LIMBS }>, Uint<{ LIMBS }>, ConstChoice) {
-        // Step 1: split operand into sign and magnitude.
         let (lhs_mag, lhs_sgn) = self.abs_sign();
-
-        // Step 2. Divide magnitudes
-        // safe to unwrap since rhs is NonZero.
         let (quotient, remainder) = lhs_mag.div_rem(rhs);
-
         (quotient, remainder, lhs_sgn)
     }
 
@@ -30,6 +23,7 @@ impl<const LIMBS: usize> Int<LIMBS> {
     /// Example:
     /// ```
     /// use crypto_bigint::{I128, NonZero, U128};
+    ///
     /// let (quotient, remainder) = I128::from(8).div_rem_uint(&U128::from(3u32).to_nz().unwrap());
     /// assert_eq!(quotient, I128::from(2));
     /// assert_eq!(remainder, I128::from(2));
@@ -52,6 +46,49 @@ impl<const LIMBS: usize> Int<LIMBS> {
         self.div_rem_uint(rhs).0
     }
 
+    /// Compute the remainder.
+    /// The remainder will have the same sign as `self` (or be zero).
+    pub const fn rem_uint(&self, rhs: &NonZero<Uint<LIMBS>>) -> Self {
+        self.div_rem_uint(rhs).1
+    }
+}
+
+/// Checked div-floor operations
+impl<const LIMBS: usize> Int<LIMBS> {
+    /// Perform floored division and mod:
+    /// given `n` and `d`, computes `q` and `r` s.t. `n = qd + r` and `q = ⌊n/d⌋`.
+    /// Note: this operation rounds **down**, not towards zero.
+    ///
+    /// Example:
+    /// ```
+    /// use crypto_bigint::{I128, U128};
+    ///
+    /// let three = U128::from(3u32).to_nz().unwrap();
+    /// assert_eq!(
+    ///     I128::from(8).div_rem_floor_uint(&three).unwrap(),
+    ///     (I128::from(2), U128::from(2u32))
+    /// );
+    /// assert_eq!(
+    ///     I128::from(-8).div_rem_floor_uint(&three).unwrap(),
+    ///     (I128::from(-3), U128::ONE)
+    /// );
+    /// ```
+    pub fn div_rem_floor_uint(&self, rhs: &NonZero<Uint<LIMBS>>) -> (Self, Uint<LIMBS>) {
+        let (quotient, remainder, lhs_sgn) = self.div_rem_base_uint(&rhs);
+
+        // Increase the quotient by one when self is negative and there is a non-zero remainder.
+        let modify = remainder.is_nonzero().and(lhs_sgn);
+        let quotient = Uint::select(&quotient, &quotient.wrapping_add(&Uint::ONE), modify);
+
+        // Invert the remainder when self is negative and there is a non-zero remainder.
+        let remainder = Uint::select(&remainder, &rhs.wrapping_sub(&remainder), modify);
+
+        // Negate if applicable
+        let quotient = Self(quotient).wrapping_neg_if(lhs_sgn);
+
+        (quotient, remainder)
+    }
+
     /// Perform checked division.
     /// Note: this operation rounds down.
     ///
@@ -59,67 +96,42 @@ impl<const LIMBS: usize> Int<LIMBS> {
     /// ```
     /// use crypto_bigint::{I128, U128};
     /// assert_eq!(
-    ///     I128::from(8).div_floor_uint(&U128::from(3u32)).unwrap(),
+    ///     I128::from(8).div_floor_uint(&U128::from(3u32).to_nz().unwrap()),
     ///     I128::from(2)
     /// );
     /// assert_eq!(
-    ///     I128::from(-8).div_floor_uint(&U128::from(3u32)).unwrap(),
+    ///     I128::from(-8).div_floor_uint(&U128::from(3u32).to_nz().unwrap()),
     ///     I128::from(-3)
     /// );
     /// ```
-    pub fn div_floor_uint(&self, rhs: &Uint<LIMBS>) -> CtOption<Self> {
-        NonZero::new(*rhs).and_then(|rhs| {
-            let (quotient, remainder, lhs_sgn) = self.div_rem_base_uint(&rhs);
-
-            // Increment the quotient when
-            // - lhs is negative, and
-            // - there is a non-zero remainder.
-            let increment_quotient = remainder.is_nonzero().and(lhs_sgn);
-            let quotient_sub_one = quotient.wrapping_add(&Uint::ONE);
-            let quotient = Uint::select(&quotient, &quotient_sub_one, increment_quotient);
-
-            Self::new_from_abs_sign(quotient, lhs_sgn).into()
-        })
+    pub fn div_floor_uint(&self, rhs: &NonZero<Uint<LIMBS>>) -> Self {
+        let (q, _) = self.div_rem_floor_uint(rhs);
+        q
     }
 
-    /// Perform checked division and mod.
-    /// Note: this operation rounds down.
+    /// Compute `self % rhs` and return the result contained in the interval `[0, rhs)`.
     ///
     /// Example:
     /// ```
     /// use crypto_bigint::{I128, U128};
     /// assert_eq!(
-    ///     I128::from(8).div_rem_floor_uint(&U128::from(3u32)).unwrap(),
-    ///     (I128::from(2), I128::from(2))
+    ///     I128::from(8).normalized_rem(&U128::from(3u32).to_nz().unwrap()),
+    ///     U128::from(2u32)
     /// );
     /// assert_eq!(
-    ///     I128::from(-8).div_rem_floor_uint(&U128::from(3u32)).unwrap(),
-    ///     (I128::from(-3), I128::from(-1))
+    ///     I128::from(-8).normalized_rem(&U128::from(3u32).to_nz().unwrap()),
+    ///     U128::ONE
     /// );
     /// ```
-    pub fn div_rem_floor_uint(&self, rhs: &Uint<LIMBS>) -> CtOption<(Self, Self)> {
-        let (lhs_mag, lhs_sgn) = self.abs_sign();
-        NonZero::new(*rhs).and_then(|rhs| {
-            let (quotient, remainder) = lhs_mag.div_rem(&rhs);
-
-            // Increase the quotient by one when lhs and rhs have opposing signs and there
-            // is a non-zero remainder.
-            let modify = remainder.is_nonzero().and(lhs_sgn);
-            let quotient_sub_one = quotient.wrapping_add(&Uint::ONE);
-            let quotient = Uint::select(&quotient, &quotient_sub_one, modify);
-
-            // Invert the remainder and add one to remainder when lhs and rhs have opposing signs
-            // and the remainder is non-zero.
-            let inv_remainder = rhs.wrapping_sub(&remainder);
-            let remainder = Uint::select(&remainder, &inv_remainder, modify);
-
-            CtOption::from(Int::new_from_abs_sign(quotient, lhs_sgn)).and_then(|quotient| {
-                CtOption::from(Int::new_from_abs_sign(remainder, lhs_sgn))
-                    .and_then(|remainder| CtOption::new((quotient, remainder), Choice::from(1u8)))
-            })
-        })
+    pub fn normalized_rem(&self, rhs: &NonZero<Uint<LIMBS>>) -> Uint<LIMBS> {
+        let (_, r) = self.div_rem_floor_uint(rhs);
+        r
     }
 }
+
+//
+// Division by an Uint
+//
 
 impl<const LIMBS: usize> Div<&NonZero<Uint<LIMBS>>> for &Int<LIMBS> {
     type Output = Int<LIMBS>;
@@ -149,7 +161,151 @@ impl<const LIMBS: usize> Div<NonZero<Uint<LIMBS>>> for Int<LIMBS> {
     type Output = Int<LIMBS>;
 
     fn div(self, rhs: NonZero<Uint<LIMBS>>) -> Self::Output {
-        self.div_rem_uint(&rhs).0
+        self.div_uint(&rhs)
+    }
+}
+
+impl<const LIMBS: usize> DivAssign<&NonZero<Uint<LIMBS>>> for Int<LIMBS> {
+    fn div_assign(&mut self, rhs: &NonZero<Uint<LIMBS>>) {
+        *self /= *rhs
+    }
+}
+
+impl<const LIMBS: usize> DivAssign<NonZero<Uint<LIMBS>>> for Int<LIMBS> {
+    fn div_assign(&mut self, rhs: NonZero<Uint<LIMBS>>) {
+        *self = *self / rhs;
+    }
+}
+
+impl<const LIMBS: usize> Div<NonZero<Uint<LIMBS>>> for Wrapping<Int<LIMBS>> {
+    type Output = Wrapping<Int<LIMBS>>;
+
+    fn div(self, rhs: NonZero<Uint<LIMBS>>) -> Self::Output {
+        Wrapping(self.0 / rhs)
+    }
+}
+
+impl<const LIMBS: usize> Div<NonZero<Uint<LIMBS>>> for &Wrapping<Int<LIMBS>> {
+    type Output = Wrapping<Int<LIMBS>>;
+
+    fn div(self, rhs: NonZero<Uint<LIMBS>>) -> Self::Output {
+        *self / rhs
+    }
+}
+
+impl<const LIMBS: usize> Div<&NonZero<Uint<LIMBS>>> for &Wrapping<Int<LIMBS>> {
+    type Output = Wrapping<Int<LIMBS>>;
+
+    fn div(self, rhs: &NonZero<Uint<LIMBS>>) -> Self::Output {
+        *self / *rhs
+    }
+}
+
+impl<const LIMBS: usize> Div<&NonZero<Uint<LIMBS>>> for Wrapping<Int<LIMBS>> {
+    type Output = Wrapping<Int<LIMBS>>;
+
+    fn div(self, rhs: &NonZero<Uint<LIMBS>>) -> Self::Output {
+        self / *rhs
+    }
+}
+
+impl<const LIMBS: usize> DivAssign<&NonZero<Uint<LIMBS>>> for Wrapping<Int<LIMBS>> {
+    fn div_assign(&mut self, rhs: &NonZero<Uint<LIMBS>>) {
+        *self = Wrapping(self.0 / rhs);
+    }
+}
+
+impl<const LIMBS: usize> DivAssign<NonZero<Uint<LIMBS>>> for Wrapping<Int<LIMBS>> {
+    fn div_assign(&mut self, rhs: NonZero<Uint<LIMBS>>) {
+        *self /= &rhs;
+    }
+}
+
+impl<const LIMBS: usize> Rem<&NonZero<Uint<LIMBS>>> for &Int<LIMBS> {
+    type Output = Int<LIMBS>;
+
+    fn rem(self, rhs: &NonZero<Uint<LIMBS>>) -> Self::Output {
+        *self % *rhs
+    }
+}
+
+impl<const LIMBS: usize> Rem<&NonZero<Uint<LIMBS>>> for Int<LIMBS> {
+    type Output = Int<LIMBS>;
+
+    fn rem(self, rhs: &NonZero<Uint<LIMBS>>) -> Self::Output {
+        self % *rhs
+    }
+}
+
+impl<const LIMBS: usize> Rem<NonZero<Uint<LIMBS>>> for &Int<LIMBS> {
+    type Output = Int<LIMBS>;
+
+    fn rem(self, rhs: NonZero<Uint<LIMBS>>) -> Self::Output {
+        *self % rhs
+    }
+}
+
+impl<const LIMBS: usize> Rem<NonZero<Uint<LIMBS>>> for Int<LIMBS> {
+    type Output = Int<LIMBS>;
+
+    fn rem(self, rhs: NonZero<Uint<LIMBS>>) -> Self::Output {
+        Self::rem_uint(&self, &rhs)
+    }
+}
+
+impl<const LIMBS: usize> RemAssign<&NonZero<Uint<LIMBS>>> for Int<LIMBS> {
+    fn rem_assign(&mut self, rhs: &NonZero<Uint<LIMBS>>) {
+        *self %= *rhs
+    }
+}
+
+impl<const LIMBS: usize> RemAssign<NonZero<Uint<LIMBS>>> for Int<LIMBS> {
+    fn rem_assign(&mut self, rhs: NonZero<Uint<LIMBS>>) {
+        *self = *self % rhs;
+    }
+}
+
+impl<const LIMBS: usize> Rem<NonZero<Uint<LIMBS>>> for Wrapping<Int<LIMBS>> {
+    type Output = Wrapping<Int<LIMBS>>;
+
+    fn rem(self, rhs: NonZero<Uint<LIMBS>>) -> Self::Output {
+        Wrapping(self.0 % rhs)
+    }
+}
+
+impl<const LIMBS: usize> Rem<NonZero<Uint<LIMBS>>> for &Wrapping<Int<LIMBS>> {
+    type Output = Wrapping<Int<LIMBS>>;
+
+    fn rem(self, rhs: NonZero<Uint<LIMBS>>) -> Self::Output {
+        *self % rhs
+    }
+}
+
+impl<const LIMBS: usize> Rem<&NonZero<Uint<LIMBS>>> for &Wrapping<Int<LIMBS>> {
+    type Output = Wrapping<Int<LIMBS>>;
+
+    fn rem(self, rhs: &NonZero<Uint<LIMBS>>) -> Self::Output {
+        *self % *rhs
+    }
+}
+
+impl<const LIMBS: usize> Rem<&NonZero<Uint<LIMBS>>> for Wrapping<Int<LIMBS>> {
+    type Output = Wrapping<Int<LIMBS>>;
+
+    fn rem(self, rhs: &NonZero<Uint<LIMBS>>) -> Self::Output {
+        self % *rhs
+    }
+}
+
+impl<const LIMBS: usize> RemAssign<NonZero<Uint<LIMBS>>> for Wrapping<Int<LIMBS>> {
+    fn rem_assign(&mut self, rhs: NonZero<Uint<LIMBS>>) {
+        *self %= &rhs;
+    }
+}
+
+impl<const LIMBS: usize> RemAssign<&NonZero<Uint<LIMBS>>> for Wrapping<Int<LIMBS>> {
+    fn rem_assign(&mut self, rhs: &NonZero<Uint<LIMBS>>) {
+        *self = Wrapping(self.0 % rhs)
     }
 }
 
@@ -181,5 +337,58 @@ mod tests {
         // lhs = max
         assert_eq!(I128::MAX / U128::ONE.to_nz().unwrap(), I128::MAX);
         assert_eq!(I128::MAX / U128::MAX.to_nz().unwrap(), I128::ZERO);
+    }
+
+    #[test]
+    fn test_div_rem_floor_uint() {
+        // lhs = min
+        assert_eq!(
+            I128::MIN.div_rem_floor_uint(&U128::ONE.to_nz().unwrap()),
+            (I128::MIN, U128::ZERO)
+        );
+        assert_eq!(
+            I128::MIN.div_rem_floor_uint(&U128::MAX.to_nz().unwrap()),
+            (I128::MINUS_ONE, I128::MIN.as_uint().wrapping_sub(&U128::ONE))
+        );
+
+        // lhs = -1
+        assert_eq!(
+            I128::MINUS_ONE.div_rem_floor_uint(&U128::ONE.to_nz().unwrap()),
+            (I128::MINUS_ONE, U128::ZERO)
+        );
+        assert_eq!(
+            I128::MINUS_ONE.div_rem_floor_uint(&U128::MAX.to_nz().unwrap()),
+            (I128::MINUS_ONE, U128::MAX.wrapping_sub(&U128::ONE))
+        );
+
+        // lhs = 0
+        assert_eq!(
+            I128::ZERO.div_rem_floor_uint(&U128::ONE.to_nz().unwrap()),
+            (I128::ZERO, U128::ZERO)
+        );
+        assert_eq!(
+            I128::ZERO.div_rem_floor_uint(&U128::MAX.to_nz().unwrap()),
+            (I128::ZERO, U128::ZERO)
+        );
+
+        // lhs = 1
+        assert_eq!(
+            I128::ONE.div_rem_floor_uint(&U128::ONE.to_nz().unwrap()),
+            (I128::ONE, U128::ZERO)
+        );
+        assert_eq!(
+            I128::ONE.div_rem_floor_uint(&U128::MAX.to_nz().unwrap()),
+            (I128::ZERO, U128::ONE)
+        );
+
+        // lhs = max
+        assert_eq!(
+            I128::MAX.div_rem_floor_uint(&U128::ONE.to_nz().unwrap()),
+            (I128::MAX, U128::ZERO)
+        );
+        assert_eq!(
+            I128::MAX.div_rem_floor_uint(&U128::MAX.to_nz().unwrap()),
+            (I128::ZERO, *I128::MAX.as_uint())
+        );
     }
 }
