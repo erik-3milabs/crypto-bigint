@@ -28,6 +28,28 @@ impl<const LIMBS: usize> Int<LIMBS> {
         (quotient, remainder, lhs_sgn, rhs_sgn)
     }
 
+    #[inline]
+    /// Variable time equivalent of [Self::div_rem_base]
+    ///
+    /// This is variable only with respect to `rhs`.
+    ///
+    /// When used with a fixed `rhs`, this function is constant-time with respect
+    /// to `self`.
+    const fn div_rem_base_vartime(
+        &self,
+        rhs: &NonZero<Self>,
+    ) -> (Uint<{ LIMBS }>, Uint<{ LIMBS }>, ConstChoice, ConstChoice) {
+        // Step 1: split operands into signs and magnitudes.
+        let (lhs_mag, lhs_sgn) = self.abs_sign();
+        let (rhs_mag, rhs_sgn) = rhs.abs_sign();
+
+        // Step 2. Divide magnitudes
+        // safe to unwrap since rhs is NonZero.
+        let (quotient, remainder) = lhs_mag.div_rem_vartime(&rhs_mag);
+
+        (quotient, remainder, lhs_sgn, rhs_sgn)
+    }
+
     /// Compute the quotient and remainder of `self / rhs`.
     ///
     /// Returns `none` for the quotient when `Int::MIN / Int::MINUS_ONE`; that quotient cannot
@@ -52,11 +74,26 @@ impl<const LIMBS: usize> Int<LIMBS> {
     /// assert_eq!(quotient.unwrap(), I128::from(2));
     /// assert_eq!(remainder, I128::from(-2));
     /// ```
-    pub const fn checked_div_rem(
+    pub const fn checked_div_rem(&self, rhs: &NonZero<Self>) -> (ConstCtOption<Self>, Self) {
+        let (quotient, remainder, lhs_sgn, rhs_sgn) = self.div_rem_base(rhs);
+        let opposing_signs = lhs_sgn.ne(rhs_sgn);
+        (
+            Self::new_from_abs_sign(quotient, opposing_signs),
+            remainder.as_int().wrapping_neg_if(lhs_sgn), // as_int mapping is safe; remainder < 2^{k-1} by construction.
+        )
+    }
+
+    /// Variable time equivalent of [Self::checked_div_rem]
+    ///
+    /// This is variable only with respect to `rhs`.
+    ///
+    /// When used with a fixed `rhs`, this function is constant-time with respect
+    /// to `self`.
+    pub const fn checked_div_rem_vartime(
         &self,
         rhs: &NonZero<Self>,
     ) -> (ConstCtOption<Self>, Self) {
-        let (quotient, remainder, lhs_sgn, rhs_sgn) = self.div_rem_base(rhs);
+        let (quotient, remainder, lhs_sgn, rhs_sgn) = self.div_rem_base_vartime(rhs);
         let opposing_signs = lhs_sgn.ne(rhs_sgn);
         (
             Self::new_from_abs_sign(quotient, opposing_signs),
@@ -73,9 +110,29 @@ impl<const LIMBS: usize> Int<LIMBS> {
         NonZero::new(*rhs).and_then(|rhs| self.checked_div_rem(&rhs).0.into())
     }
 
+    /// Variable time equivalent of [Self::checked_div]
+    ///
+    /// This is variable only with respect to `rhs`.
+    ///
+    /// When used with a fixed `rhs`, this function is constant-time with respect
+    /// to `self`.
+    pub fn checked_div_vartime(&self, rhs: &Self) -> CtOption<Self> {
+        NonZero::new(*rhs).and_then(|rhs| self.checked_div_rem_vartime(&rhs).0.into())
+    }
+
     /// Computes `self` % `rhs`, returns the remainder.
     pub const fn rem(&self, rhs: &NonZero<Self>) -> Self {
         self.checked_div_rem(rhs).1
+    }
+
+    /// Variable time equivalent of [Self::rem]
+    ///
+    /// This is variable only with respect to `rhs`.
+    ///
+    /// When used with a fixed `rhs`, this function is constant-time with respect
+    /// to `self`.
+    pub const fn rem_vartime(&self, rhs: &NonZero<Self>) -> Self {
+        self.checked_div_rem_vartime(rhs).1
     }
 }
 
@@ -163,7 +220,7 @@ impl<const LIMBS: usize> Int<LIMBS> {
     /// )
     /// ```
     pub fn checked_div_floor(&self, rhs: &Self) -> CtOption<Self> {
-        NonZero::new(*rhs).and_then(|rhs| {self.checked_div_rem_floor(&rhs).0.into()})
+        NonZero::new(*rhs).and_then(|rhs| self.checked_div_rem_floor(&rhs).0.into())
     }
 }
 
@@ -255,7 +312,9 @@ impl<const LIMBS: usize> Div<&NonZero<Int<LIMBS>>> for Wrapping<Int<LIMBS>> {
 
 impl<const LIMBS: usize> DivAssign<&NonZero<Int<LIMBS>>> for Wrapping<Int<LIMBS>> {
     fn div_assign(&mut self, rhs: &NonZero<Int<LIMBS>>) {
-        *self = Wrapping((self.0 / rhs).expect("cannot represent positive equivalent of Int::MIN as int"));
+        *self = Wrapping(
+            (self.0 / rhs).expect("cannot represent positive equivalent of Int::MIN as int"),
+        );
     }
 }
 
@@ -472,7 +531,8 @@ mod tests {
 
     #[test]
     fn test_checked_div_mod_floor() {
-        let (quotient, remainder) = I128::MIN.checked_div_rem_floor(&I128::MINUS_ONE.to_nz().unwrap());
+        let (quotient, remainder) =
+            I128::MIN.checked_div_rem_floor(&I128::MINUS_ONE.to_nz().unwrap());
         assert_eq!(quotient.is_some(), ConstChoice::FALSE);
         assert_eq!(remainder, I128::ZERO);
     }
