@@ -193,6 +193,40 @@ impl<const LIMBS: usize> Int<LIMBS> {
         (quotient, remainder)
     }
 
+    /// Variable time equivalent of [Self::checked_div_rem_floor]
+    ///
+    /// This is variable only with respect to `rhs`.
+    ///
+    /// When used with a fixed `rhs`, this function is constant-time with respect
+    /// to `self`.
+    pub const fn checked_div_rem_floor_vartime(
+        &self,
+        rhs: &NonZero<Self>,
+    ) -> (ConstCtOption<Self>, Self) {
+        let (lhs_mag, lhs_sgn) = self.abs_sign();
+        let (rhs_mag, rhs_sgn) = rhs.abs_sign();
+        let (quotient, remainder) = lhs_mag.div_rem_vartime(&rhs_mag);
+
+        // Modify quotient and remainder when lhs and rhs have opposing signs and the remainder is
+        // non-zero.
+        let opposing_signs = lhs_sgn.xor(rhs_sgn);
+        let modify = remainder.is_nonzero().and(opposing_signs);
+
+        // Increase the quotient by one.
+        let quotient_plus_one = quotient.wrapping_add(&Uint::ONE); // cannot wrap.
+        let quotient = Uint::select(&quotient, &quotient_plus_one, modify);
+
+        // Invert the remainder.
+        let inv_remainder = rhs_mag.0.wrapping_sub(&remainder);
+        let remainder = Uint::select(&remainder, &inv_remainder, modify);
+
+        // Negate output when lhs and rhs have opposing signs.
+        let quotient = Int::new_from_abs_sign(quotient, opposing_signs);
+        let remainder = remainder.as_int().wrapping_neg_if(opposing_signs); // rem always small enough for safe as_int conversion
+
+        (quotient, remainder)
+    }
+
     /// Perform checked floored division, returning a [`ConstCtOption`] which `is_some` only if
     /// - the `rhs != 0`, and
     /// - `self != MIN` or `rhs != MINUS_ONE`.
@@ -221,6 +255,16 @@ impl<const LIMBS: usize> Int<LIMBS> {
     /// ```
     pub fn checked_div_floor(&self, rhs: &Self) -> CtOption<Self> {
         NonZero::new(*rhs).and_then(|rhs| self.checked_div_rem_floor(&rhs).0.into())
+    }
+
+    /// Variable time equivalent of [Self::checked_div_floor]
+    ///
+    /// This is variable only with respect to `rhs`.
+    ///
+    /// When used with a fixed `rhs`, this function is constant-time with respect
+    /// to `self`.
+    pub fn checked_div_floor_vartime(&self, rhs: &Self) -> CtOption<Self> {
+        NonZero::new(*rhs).and_then(|rhs| self.checked_div_rem_floor_vartime(&rhs).0.into())
     }
 }
 
