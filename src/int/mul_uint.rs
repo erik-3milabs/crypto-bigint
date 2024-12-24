@@ -25,6 +25,21 @@ impl<const LIMBS: usize> Int<LIMBS> {
         (lo, hi, lhs_sgn)
     }
 
+    /// Compute "wide" multiplication between an [`Int`] and [`Uint`] as 3-tuple `(lo, hi, negate)`.
+    /// The `(lo, hi)` components contain the _magnitude of the product_, with sizes
+    /// corresponding to the sizes of the operands, in reversed order; `negate` indicates whether
+    /// the result should be negated when converted from [`Uint`] to [`Int`].
+    ///
+    /// Note: even if `negate` is truthy, the magnitude might be zero!
+    pub const fn split_mul_uint_right<const RHS_LIMBS: usize>(
+        &self,
+        rhs: &Uint<RHS_LIMBS>,
+    ) -> (Uint<{ RHS_LIMBS }>, Uint<{ LIMBS }>, ConstChoice) {
+        let (lhs_abs, lhs_sgn) = self.abs_sign();
+        let (lo, hi) = rhs.split_mul(&lhs_abs);
+        (lo, hi, lhs_sgn)
+    }
+
     /// Multiply `self` by [`Uint`] `rhs`, returning a concatenated "wide" result.
     pub const fn widening_mul_uint<const RHS_LIMBS: usize, const WIDE_LIMBS: usize>(
         &self,
