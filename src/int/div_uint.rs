@@ -18,6 +18,22 @@ impl<const LIMBS: usize> Int<LIMBS> {
         (quotient, remainder, lhs_sgn)
     }
 
+    #[inline]
+    /// Variable time equivalent of [Self::div_rem_base_uint`].
+    ///
+    /// This is variable only with respect to `rhs`.
+    ///
+    /// When used with a fixed `rhs`, this function is constant-time with respect
+    /// to `self`.
+    const fn div_rem_base_uint_vartime(
+        &self,
+        rhs: &NonZero<Uint<LIMBS>>,
+    ) -> (Uint<{ LIMBS }>, Uint<{ LIMBS }>, ConstChoice) {
+        let (lhs_mag, lhs_sgn) = self.abs_sign();
+        let (quotient, remainder) = lhs_mag.div_rem_vartime(rhs);
+        (quotient, remainder, lhs_sgn)
+    }
+
     /// Compute the quotient and remainder of `self / rhs`.
     ///
     /// Example:
@@ -40,16 +56,50 @@ impl<const LIMBS: usize> Int<LIMBS> {
         )
     }
 
+    /// Variable time equivalent of [Self::div_rem_uint`].
+    ///
+    /// This is variable only with respect to `rhs`.
+    ///
+    /// When used with a fixed `rhs`, this function is constant-time with respect
+    /// to `self`.
+    pub const fn div_rem_uint_vartime(&self, rhs: &NonZero<Uint<LIMBS>>) -> (Self, Self) {
+        let (quotient, remainder, lhs_sgn) = self.div_rem_base_uint_vartime(rhs);
+        (
+            Self(quotient).wrapping_neg_if(lhs_sgn),
+            Self(remainder).wrapping_neg_if(lhs_sgn),
+        )
+    }
+
     /// Perform division.
     /// Note: this operation rounds towards zero, truncating any fractional part of the exact result.
     pub const fn div_uint(&self, rhs: &NonZero<Uint<LIMBS>>) -> Self {
         self.div_rem_uint(rhs).0
     }
 
+    /// Variable time equivalent of [Self::div_uint`].
+    ///
+    /// This is variable only with respect to `rhs`.
+    ///
+    /// When used with a fixed `rhs`, this function is constant-time with respect
+    /// to `self`.
+    pub const fn div_uint_vartime(&self, rhs: &NonZero<Uint<LIMBS>>) -> Self {
+        self.div_rem_uint_vartime(rhs).0
+    }
+
     /// Compute the remainder.
     /// The remainder will have the same sign as `self` (or be zero).
     pub const fn rem_uint(&self, rhs: &NonZero<Uint<LIMBS>>) -> Self {
         self.div_rem_uint(rhs).1
+    }
+
+    /// Variable time equivalent of [Self::rem_uint`].
+    ///
+    /// This is variable only with respect to `rhs`.
+    ///
+    /// When used with a fixed `rhs`, this function is constant-time with respect
+    /// to `self`.
+    pub const fn rem_uint_vartime(&self, rhs: &NonZero<Uint<LIMBS>>) -> Self {
+        self.div_rem_uint_vartime(rhs).1
     }
 }
 
