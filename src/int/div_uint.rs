@@ -139,6 +139,28 @@ impl<const LIMBS: usize> Int<LIMBS> {
         (quotient, remainder)
     }
 
+    /// Variable time equivalent of [Self::div_rem_floor_uint`].
+    ///
+    /// This is variable only with respect to `rhs`.
+    ///
+    /// When used with a fixed `rhs`, this function is constant-time with respect
+    /// to `self`.
+    pub fn div_rem_floor_uint_vartime(&self, rhs: &NonZero<Uint<LIMBS>>) -> (Self, Uint<LIMBS>) {
+        let (quotient, remainder, lhs_sgn) = self.div_rem_base_uint_vartime(&rhs);
+
+        // Increase the quotient by one when self is negative and there is a non-zero remainder.
+        let modify = remainder.is_nonzero().and(lhs_sgn);
+        let quotient = Uint::select(&quotient, &quotient.wrapping_add(&Uint::ONE), modify);
+
+        // Invert the remainder when self is negative and there is a non-zero remainder.
+        let remainder = Uint::select(&remainder, &rhs.wrapping_sub(&remainder), modify);
+
+        // Negate if applicable
+        let quotient = Self(quotient).wrapping_neg_if(lhs_sgn);
+
+        (quotient, remainder)
+    }
+
     /// Perform checked division.
     /// Note: this operation rounds down.
     ///
@@ -159,6 +181,17 @@ impl<const LIMBS: usize> Int<LIMBS> {
         q
     }
 
+    /// Variable time equivalent of [Self::div_floor_uint`].
+    ///
+    /// This is variable only with respect to `rhs`.
+    ///
+    /// When used with a fixed `rhs`, this function is constant-time with respect
+    /// to `self`.
+    pub fn div_floor_uint_vartime(&self, rhs: &NonZero<Uint<LIMBS>>) -> Self {
+        let (q, _) = self.div_rem_floor_uint_vartime(rhs);
+        q
+    }
+
     /// Compute `self % rhs` and return the result contained in the interval `[0, rhs)`.
     ///
     /// Example:
@@ -175,6 +208,17 @@ impl<const LIMBS: usize> Int<LIMBS> {
     /// ```
     pub fn normalized_rem(&self, rhs: &NonZero<Uint<LIMBS>>) -> Uint<LIMBS> {
         let (_, r) = self.div_rem_floor_uint(rhs);
+        r
+    }
+
+    /// Variable time equivalent of [Self::normalized_rem`].
+    ///
+    /// This is variable only with respect to `rhs`.
+    ///
+    /// When used with a fixed `rhs`, this function is constant-time with respect
+    /// to `self`.
+    pub fn normalized_rem_vartime(&self, rhs: &NonZero<Uint<LIMBS>>) -> Uint<LIMBS> {
+        let (_, r) = self.div_rem_floor_uint_vartime(rhs);
         r
     }
 }
@@ -398,7 +442,10 @@ mod tests {
         );
         assert_eq!(
             I128::MIN.div_rem_floor_uint(&U128::MAX.to_nz().unwrap()),
-            (I128::MINUS_ONE, I128::MIN.as_uint().wrapping_sub(&U128::ONE))
+            (
+                I128::MINUS_ONE,
+                I128::MIN.as_uint().wrapping_sub(&U128::ONE)
+            )
         );
 
         // lhs = -1
