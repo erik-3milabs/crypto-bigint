@@ -35,10 +35,10 @@ impl<const LIMBS: usize> Int<LIMBS> {
     ///
     /// When used with a fixed `rhs`, this function is constant-time with respect
     /// to `self`.
-    const fn div_rem_base_vartime(
+    const fn div_rem_base_vartime<const RHS_LIMBS: usize>(
         &self,
-        rhs: &NonZero<Self>,
-    ) -> (Uint<{ LIMBS }>, Uint<{ LIMBS }>, ConstChoice, ConstChoice) {
+        rhs: &NonZero<Int<RHS_LIMBS>>,
+    ) -> (Uint<LIMBS>, Uint<RHS_LIMBS>, ConstChoice, ConstChoice) {
         // Step 1: split operands into signs and magnitudes.
         let (lhs_mag, lhs_sgn) = self.abs_sign();
         let (rhs_mag, rhs_sgn) = rhs.abs_sign();
@@ -89,10 +89,10 @@ impl<const LIMBS: usize> Int<LIMBS> {
     ///
     /// When used with a fixed `rhs`, this function is constant-time with respect
     /// to `self`.
-    pub const fn checked_div_rem_vartime(
+    pub const fn checked_div_rem_vartime<const RHS_LIMBS: usize>(
         &self,
-        rhs: &NonZero<Self>,
-    ) -> (ConstCtOption<Self>, Self) {
+        rhs: &NonZero<Int<RHS_LIMBS>>,
+    ) -> (ConstCtOption<Self>, Int<RHS_LIMBS>) {
         let (quotient, remainder, lhs_sgn, rhs_sgn) = self.div_rem_base_vartime(rhs);
         let opposing_signs = lhs_sgn.ne(rhs_sgn);
         (
@@ -116,7 +116,10 @@ impl<const LIMBS: usize> Int<LIMBS> {
     ///
     /// When used with a fixed `rhs`, this function is constant-time with respect
     /// to `self`.
-    pub fn checked_div_vartime(&self, rhs: &Self) -> CtOption<Self> {
+    pub fn checked_div_vartime<const RHS_LIMBS: usize>(
+        &self,
+        rhs: &Int<RHS_LIMBS>,
+    ) -> CtOption<Self> {
         NonZero::new(*rhs).and_then(|rhs| self.checked_div_rem_vartime(&rhs).0.into())
     }
 
@@ -131,7 +134,10 @@ impl<const LIMBS: usize> Int<LIMBS> {
     ///
     /// When used with a fixed `rhs`, this function is constant-time with respect
     /// to `self`.
-    pub const fn rem_vartime(&self, rhs: &NonZero<Self>) -> Self {
+    pub const fn rem_vartime<const RHS_LIMBS: usize>(
+        &self,
+        rhs: &NonZero<Int<RHS_LIMBS>>,
+    ) -> Int<RHS_LIMBS> {
         self.checked_div_rem_vartime(rhs).1
     }
 }
@@ -199,10 +205,10 @@ impl<const LIMBS: usize> Int<LIMBS> {
     ///
     /// When used with a fixed `rhs`, this function is constant-time with respect
     /// to `self`.
-    pub const fn checked_div_rem_floor_vartime(
+    pub const fn checked_div_rem_floor_vartime<const RHS_LIMBS: usize>(
         &self,
-        rhs: &NonZero<Self>,
-    ) -> (ConstCtOption<Self>, Self) {
+        rhs: &NonZero<Int<RHS_LIMBS>>,
+    ) -> (ConstCtOption<Self>, Int<RHS_LIMBS>) {
         let (lhs_mag, lhs_sgn) = self.abs_sign();
         let (rhs_mag, rhs_sgn) = rhs.abs_sign();
         let (quotient, remainder) = lhs_mag.div_rem_vartime(&rhs_mag);
@@ -263,7 +269,10 @@ impl<const LIMBS: usize> Int<LIMBS> {
     ///
     /// When used with a fixed `rhs`, this function is constant-time with respect
     /// to `self`.
-    pub fn checked_div_floor_vartime(&self, rhs: &Self) -> CtOption<Self> {
+    pub fn checked_div_floor_vartime<const RHS_LIMBS: usize>(
+        &self,
+        rhs: &Int<RHS_LIMBS>,
+    ) -> CtOption<Self> {
         NonZero::new(*rhs).and_then(|rhs| self.checked_div_rem_floor_vartime(&rhs).0.into())
     }
 }
@@ -458,8 +467,8 @@ impl<const LIMBS: usize> RemAssign<&NonZero<Int<LIMBS>>> for Wrapping<Int<LIMBS>
 
 #[cfg(test)]
 mod tests {
+    use crate::int::{Int, I128};
     use crate::ConstChoice;
-    use crate::int::{I128, Int};
 
     #[test]
     fn test_checked_div() {
