@@ -69,7 +69,7 @@ impl<const LIMBS: usize> Int<LIMBS> {
         let (quotient, remainder, lhs_sgn) = self.div_rem_base_uint_vartime(rhs);
         (
             Self(quotient).wrapping_neg_if(lhs_sgn),
-            Int(remainder).wrapping_neg_if(lhs_sgn),
+            remainder.as_int().wrapping_neg_if(lhs_sgn),
         )
     }
 
