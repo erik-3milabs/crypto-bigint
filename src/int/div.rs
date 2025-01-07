@@ -467,8 +467,7 @@ impl<const LIMBS: usize> RemAssign<&NonZero<Int<LIMBS>>> for Wrapping<Int<LIMBS>
 
 #[cfg(test)]
 mod tests {
-    use crate::int::{Int, I128};
-    use crate::ConstChoice;
+    use crate::{ConstChoice, Int, I128};
 
     #[test]
     fn test_checked_div() {

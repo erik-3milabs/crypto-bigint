@@ -56,20 +56,18 @@ impl<const LIMBS: usize> Int<LIMBS> {
     /// Square self, returning a concatenated "wide" result.
     pub fn widening_square<const WIDE_LIMBS: usize>(&self) -> Uint<WIDE_LIMBS>
     where
-        Uint<LIMBS>: ConcatMixed<Uint<LIMBS>, MixedOutput = Uint<WIDE_LIMBS>>
+        Uint<LIMBS>: ConcatMixed<Uint<LIMBS>, MixedOutput = Uint<WIDE_LIMBS>>,
     {
         self.abs().widening_square()
     }
 
     /// Square self, checking that the result fits in the original [`Uint`] size.
-    pub fn checked_square(&self) -> ConstCtOption<Uint<LIMBS>>
-    {
+    pub fn checked_square(&self) -> ConstCtOption<Uint<LIMBS>> {
         self.abs().checked_square()
     }
 
     /// Perform wrapping square, discarding overflow.
-    pub const fn wrapping_square(&self) -> Uint<LIMBS>
-    {
+    pub const fn wrapping_square(&self) -> Uint<LIMBS> {
         self.abs().wrapping_square()
     }
 
@@ -316,18 +314,27 @@ mod tests {
     #[test]
     fn test_widening_square() {
         let res = I128::from_i64(i64::MIN).widening_square();
-        assert_eq!(res, U256::from_be_hex("0000000000000000000000000000000040000000000000000000000000000000"));
+        assert_eq!(
+            res,
+            U256::from_be_hex("0000000000000000000000000000000040000000000000000000000000000000")
+        );
 
         let x: I128 = I128::MINUS_ONE << 64;
         let res = x.widening_square();
-        assert_eq!(res, U256::from_be_hex("0000000000000000000000000000000100000000000000000000000000000000"))
+        assert_eq!(
+            res,
+            U256::from_be_hex("0000000000000000000000000000000100000000000000000000000000000000")
+        )
     }
 
     #[test]
     fn test_checked_square() {
         let res = I128::from_i64(i64::MIN).checked_square();
         assert_eq!(res.is_some(), ConstChoice::TRUE);
-        assert_eq!(res.unwrap(), U128::from_be_hex("40000000000000000000000000000000"));
+        assert_eq!(
+            res.unwrap(),
+            U128::from_be_hex("40000000000000000000000000000000")
+        );
 
         let x: I128 = I128::MINUS_ONE << 64;
         let res = x.checked_square();
@@ -355,9 +362,6 @@ mod tests {
             U128::from_be_hex("40000000000000000000000000000000")
         );
         let x: I128 = I128::MINUS_ONE << 64;
-        assert_eq!(
-            x.saturating_square(),
-            U128::MAX
-        );
+        assert_eq!(x.saturating_square(), U128::MAX);
     }
 }

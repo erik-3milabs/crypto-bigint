@@ -1,6 +1,6 @@
 //! Wrapper type for non-zero integers.
 
-use crate::{Bounded, Constants, ConstChoice, Encoding, Int, Limb, Uint, Zero};
+use crate::{Bounded, ConstChoice, Constants, Encoding, Int, Limb, Uint, Zero};
 use core::{
     fmt,
     num::{NonZeroU128, NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8},
@@ -424,7 +424,6 @@ mod tests_serde {
     use bincode::ErrorKind;
 
     use crate::{NonZero, U64};
-    use bincode::ErrorKind;
 
     #[test]
     fn serde() {

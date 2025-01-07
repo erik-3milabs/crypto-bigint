@@ -199,6 +199,11 @@ impl ConstChoice {
         Self::xor(self, other)
     }
 
+    #[inline]
+    pub(crate) const fn eq(&self, other: Self) -> Self {
+        Self::ne(self, other).not()
+    }
+
     /// Return `b` if `self` is truthy, otherwise return `a`.
     #[inline]
     pub(crate) const fn select_word(&self, a: Word, b: Word) -> Word {
@@ -488,9 +493,8 @@ impl<const SAT_LIMBS: usize, const UNSAT_LIMBS: usize>
 
 #[cfg(test)]
 mod tests {
-    use crate::{WideWord, Word};
-
     use super::ConstChoice;
+    use crate::{WideWord, Word};
 
     #[test]
     fn from_u64_lsb() {

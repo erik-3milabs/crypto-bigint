@@ -1,7 +1,10 @@
 //! [`Uint`] multiplication operations.
 
 use self::karatsuba::UintKaratsubaMul;
-use crate::{Checked, CheckedMul, Concat, ConcatMixed, ConstCtOption, Limb, Uint, WideningMul, Wrapping, WrappingMul, Zero};
+use crate::{
+    Checked, CheckedMul, Concat, ConcatMixed, ConstCtOption, Limb, Uint, WideningMul, Wrapping,
+    WrappingMul, Zero,
+};
 use core::ops::{Mul, MulAssign};
 use subtle::CtOption;
 
@@ -128,7 +131,7 @@ impl<const LIMBS: usize> Uint<LIMBS> {
         rhs: &Uint<RHS_LIMBS>,
     ) -> Uint<WIDE_LIMBS>
     where
-        Self: ConcatMixed<Uint<RHS_LIMBS>, MixedOutput=Uint<WIDE_LIMBS>>,
+        Self: ConcatMixed<Uint<RHS_LIMBS>, MixedOutput = Uint<WIDE_LIMBS>>,
     {
         let (lo, hi) = self.split_mul(rhs);
         Uint::concat_mixed(&lo, &hi)
@@ -202,15 +205,13 @@ impl<const LIMBS: usize> Uint<LIMBS> {
     }
 
     /// Square self, checking that the result fits in the original [`Uint`] size.
-    pub const fn checked_square(&self) -> ConstCtOption<Uint<{ LIMBS }>>
-    {
+    pub const fn checked_square(&self) -> ConstCtOption<Uint<LIMBS>> {
         let (lo, hi) = self.square_wide();
         ConstCtOption::new(lo, Self::eq(&hi, &Self::ZERO))
     }
 
     /// Perform wrapping square, discarding overflow.
-    pub const fn wrapping_square(&self) -> Uint<LIMBS>
-    {
+    pub const fn wrapping_square(&self) -> Uint<LIMBS> {
         self.square_wide().0
     }
 
@@ -383,7 +384,7 @@ pub(crate) fn square_limbs(limbs: &[Limb], out: &mut [Limb]) {
 
 #[cfg(test)]
 mod tests {
-    use crate::{CheckedMul, Zero, U128, U192, U256, U64, ConstChoice};
+    use crate::{CheckedMul, ConstChoice, Zero, U128, U192, U256, U64};
 
     #[test]
     fn mul_wide_zero_and_one() {
