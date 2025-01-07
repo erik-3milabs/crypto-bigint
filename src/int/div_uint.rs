@@ -25,10 +25,10 @@ impl<const LIMBS: usize> Int<LIMBS> {
     ///
     /// When used with a fixed `rhs`, this function is constant-time with respect
     /// to `self`.
-    const fn div_rem_base_uint_vartime(
+    const fn div_rem_base_uint_vartime<const RHS_LIMBS: usize>(
         &self,
-        rhs: &NonZero<Uint<LIMBS>>,
-    ) -> (Uint<{ LIMBS }>, Uint<{ LIMBS }>, ConstChoice) {
+        rhs: &NonZero<Uint<RHS_LIMBS>>,
+    ) -> (Uint<LIMBS>, Uint<RHS_LIMBS>, ConstChoice) {
         let (lhs_mag, lhs_sgn) = self.abs_sign();
         let (quotient, remainder) = lhs_mag.div_rem_vartime(rhs);
         (quotient, remainder, lhs_sgn)
@@ -62,11 +62,14 @@ impl<const LIMBS: usize> Int<LIMBS> {
     ///
     /// When used with a fixed `rhs`, this function is constant-time with respect
     /// to `self`.
-    pub const fn div_rem_uint_vartime(&self, rhs: &NonZero<Uint<LIMBS>>) -> (Self, Self) {
+    pub const fn div_rem_uint_vartime<const RHS_LIMBS: usize>(
+        &self,
+        rhs: &NonZero<Uint<RHS_LIMBS>>,
+    ) -> (Self, Int<RHS_LIMBS>) {
         let (quotient, remainder, lhs_sgn) = self.div_rem_base_uint_vartime(rhs);
         (
             Self(quotient).wrapping_neg_if(lhs_sgn),
-            Self(remainder).wrapping_neg_if(lhs_sgn),
+            Int(remainder).wrapping_neg_if(lhs_sgn),
         )
     }
 
@@ -82,7 +85,10 @@ impl<const LIMBS: usize> Int<LIMBS> {
     ///
     /// When used with a fixed `rhs`, this function is constant-time with respect
     /// to `self`.
-    pub const fn div_uint_vartime(&self, rhs: &NonZero<Uint<LIMBS>>) -> Self {
+    pub const fn div_uint_vartime<const RHS_LIMBS: usize>(
+        &self,
+        rhs: &NonZero<Uint<RHS_LIMBS>>,
+    ) -> Self {
         self.div_rem_uint_vartime(rhs).0
     }
 
@@ -98,7 +104,10 @@ impl<const LIMBS: usize> Int<LIMBS> {
     ///
     /// When used with a fixed `rhs`, this function is constant-time with respect
     /// to `self`.
-    pub const fn rem_uint_vartime(&self, rhs: &NonZero<Uint<LIMBS>>) -> Self {
+    pub const fn rem_uint_vartime<const RHS_LIMBS: usize>(
+        &self,
+        rhs: &NonZero<Uint<RHS_LIMBS>>,
+    ) -> Int<RHS_LIMBS> {
         self.div_rem_uint_vartime(rhs).1
     }
 }
@@ -145,7 +154,10 @@ impl<const LIMBS: usize> Int<LIMBS> {
     ///
     /// When used with a fixed `rhs`, this function is constant-time with respect
     /// to `self`.
-    pub fn div_rem_floor_uint_vartime(&self, rhs: &NonZero<Uint<LIMBS>>) -> (Self, Uint<LIMBS>) {
+    pub fn div_rem_floor_uint_vartime<const RHS_LIMBS: usize>(
+        &self,
+        rhs: &NonZero<Uint<RHS_LIMBS>>,
+    ) -> (Self, Uint<RHS_LIMBS>) {
         let (quotient, remainder, lhs_sgn) = self.div_rem_base_uint_vartime(&rhs);
 
         // Increase the quotient by one when self is negative and there is a non-zero remainder.
@@ -187,7 +199,10 @@ impl<const LIMBS: usize> Int<LIMBS> {
     ///
     /// When used with a fixed `rhs`, this function is constant-time with respect
     /// to `self`.
-    pub fn div_floor_uint_vartime(&self, rhs: &NonZero<Uint<LIMBS>>) -> Self {
+    pub fn div_floor_uint_vartime<const RHS_LIMBS: usize>(
+        &self,
+        rhs: &NonZero<Uint<RHS_LIMBS>>,
+    ) -> Self {
         let (q, _) = self.div_rem_floor_uint_vartime(rhs);
         q
     }
@@ -217,7 +232,10 @@ impl<const LIMBS: usize> Int<LIMBS> {
     ///
     /// When used with a fixed `rhs`, this function is constant-time with respect
     /// to `self`.
-    pub fn normalized_rem_vartime(&self, rhs: &NonZero<Uint<LIMBS>>) -> Uint<LIMBS> {
+    pub fn normalized_rem_vartime<const RHS_LIMBS: usize>(
+        &self,
+        rhs: &NonZero<Uint<RHS_LIMBS>>,
+    ) -> Uint<RHS_LIMBS> {
         let (_, r) = self.div_rem_floor_uint_vartime(rhs);
         r
     }
