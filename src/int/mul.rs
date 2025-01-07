@@ -52,7 +52,6 @@ impl<const LIMBS: usize> Int<LIMBS> {
 
 /// Squaring operations.
 impl<const LIMBS: usize> Int<LIMBS> {
-
     /// Square self, returning a concatenated "wide" result.
     pub fn widening_square<const WIDE_LIMBS: usize>(&self) -> Uint<WIDE_LIMBS>
     where
