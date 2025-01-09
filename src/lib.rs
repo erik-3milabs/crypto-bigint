@@ -117,7 +117,7 @@
 //! ### Random number generation
 //!
 //! When the `rand_core` or `rand` features of this crate are enabled, it's
-//! possible to generate random numbers using any CSRNG by using the
+//! possible to generate random numbers using any RNG by using the
 //! [`Random`] trait:
 //!
 //! ```
@@ -174,7 +174,6 @@ pub use crate::uint::boxed::BoxedUint;
 pub use crate::{
     checked::Checked,
     const_choice::{ConstChoice, ConstCtOption},
-    int::types::*,
     int::*,
     limb::{Limb, WideWord, Word},
     non_zero::NonZero,

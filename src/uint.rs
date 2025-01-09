@@ -15,8 +15,8 @@ pub use extra_sizes::*;
 
 use crate::{
     modular::{MontyForm, SafeGcdInverter},
-    Bounded, ConstCtOption, ConstZero, Constants, Encoding, FixedInteger, Int, Integer, Limb,
-    NonZero, Odd, PrecomputeInverter, PrecomputeInverterWithAdjuster, Word,
+    Bounded, ConstChoice, ConstCtOption, ConstZero, Constants, Encoding, FixedInteger, Int,
+    Integer, Limb, NonZero, Odd, PrecomputeInverter, PrecomputeInverterWithAdjuster, Word,
 };
 
 #[macro_use]
@@ -189,8 +189,17 @@ impl<const LIMBS: usize> Uint<LIMBS> {
     }
 
     /// Interpret the data in this type as an [`Int`] instead.
+    ///
+    /// Note: this is a reinterpretation. For conversion, see [`Uint::to_int`].
     pub const fn as_int(&self) -> Int<LIMBS> {
         Int::from_bits(*self)
+    }
+
+    /// Convert the data in this type to be an [`Int`] instead.
+    ///
+    /// Note: this is a conversion. For bit-value reinterpretation, see [`Uint::as_int`].
+    pub const fn to_int(&self) -> ConstCtOption<Int<LIMBS>> {
+        Int::new_from_abs_sign(*self, ConstChoice::FALSE)
     }
 }
 
@@ -263,6 +272,15 @@ impl<const LIMBS: usize> Integer for Uint<LIMBS> {
 
     fn nlimbs(&self) -> usize {
         Self::LIMBS
+    }
+}
+
+impl<const LIMBS: usize> num_traits::Num for Uint<LIMBS> {
+    type FromStrRadixErr = crate::DecodeError;
+
+    /// ⚠️ WARNING: `from_str_radix` impl operates in variable-time with respect to the input.
+    fn from_str_radix(str: &str, radix: u32) -> Result<Self, Self::FromStrRadixErr> {
+        Self::from_str_radix_vartime(str, radix)
     }
 }
 
@@ -465,7 +483,7 @@ mod tests {
 
     #[cfg(feature = "serde")]
     use crate::U64;
-    use crate::{Encoding, U128};
+    use crate::{ConstChoice, Encoding, I128, U128};
 
     #[cfg(target_pointer_width = "64")]
     #[test]
@@ -540,6 +558,23 @@ mod tests {
 
         let select_1 = U128::conditional_select(&a, &b, 1.into());
         assert_eq!(b, select_1);
+    }
+
+    #[test]
+    fn as_int() {
+        assert_eq!(U128::ZERO.as_int(), I128::ZERO);
+        assert_eq!(U128::ONE.as_int(), I128::ONE);
+        assert_eq!(U128::MAX.as_int(), I128::MINUS_ONE);
+        assert_eq!(U128::MAX.shr(1).as_int(), I128::MAX);
+        assert_eq!((U128::MAX ^ U128::MAX.shr(1)).as_int(), I128::MIN);
+    }
+
+    #[test]
+    fn to_int() {
+        assert_eq!(U128::ZERO.to_int().unwrap(), I128::ZERO);
+        assert_eq!(U128::ONE.to_int().unwrap(), I128::ONE);
+        assert_eq!(U128::MAX.shr(1).as_int(), I128::MAX);
+        assert_eq!(U128::MAX.to_int().is_some(), ConstChoice::FALSE);
     }
 
     #[cfg(feature = "serde")]

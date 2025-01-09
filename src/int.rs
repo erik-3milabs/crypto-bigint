@@ -7,9 +7,12 @@ use num_traits::ConstZero;
 use serdect::serde::{Deserialize, Deserializer, Serialize, Serializer};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
 
-#[cfg(feature = "serde")]
-use crate::Encoding;
-use crate::{Bounded, ConstChoice, ConstCtOption, Constants, Limb, NonZero, Odd, Uint, Word};
+use crate::{
+    Bounded, ConstChoice, ConstCtOption, Constants, Encoding, Limb, NonZero, Odd, Uint, Word,
+};
+
+#[macro_use]
+mod macros;
 
 mod add;
 mod bit_and;
@@ -18,16 +21,19 @@ mod bit_or;
 mod bit_xor;
 mod cmp;
 mod div;
+mod div_uint;
 mod encoding;
 mod from;
+mod gcd;
+mod inv_mod;
 mod mul;
+mod mul_uint;
 mod neg;
 mod resize;
 mod shl;
 mod shr;
 mod sign;
 mod sub;
-pub(crate) mod types;
 
 #[cfg(feature = "rand_core")]
 mod rand;
@@ -135,7 +141,7 @@ impl<const LIMBS: usize> Int<LIMBS> {
     ///
     /// Returns some if the original value is odd, and false otherwise.
     pub const fn to_odd(self) -> ConstCtOption<Odd<Self>> {
-        ConstCtOption::new(Odd(self), self.0.is_odd())
+        ConstCtOption::new(Odd(self), self.is_odd())
     }
 
     /// Interpret the data in this type as a [`Uint`] instead.
@@ -149,7 +155,7 @@ impl<const LIMBS: usize> Int<LIMBS> {
     }
 
     /// Whether this [`Int`] is equal to `Self::MAX`.
-    pub fn is_max(&self) -> ConstChoice {
+    pub const fn is_max(&self) -> ConstChoice {
         Self::eq(self, &Self::MAX)
     }
 
@@ -291,12 +297,46 @@ where
     }
 }
 
+impl_int_aliases! {
+    (I64, 64, "64-bit"),
+    (I128, 128, "128-bit"),
+    (I192, 192, "192-bit"),
+    (I256, 256, "256-bit"),
+    (I320, 320, "320-bit"),
+    (I384, 384, "384-bit"),
+    (I448, 448, "448-bit"),
+    (I512, 512, "512-bit"),
+    (I576, 576, "576-bit"),
+    (I640, 640, "640-bit"),
+    (I704, 704, "704-bit"),
+    (I768, 768, "768-bit"),
+    (I832, 832, "832-bit"),
+    (I896, 896, "896-bit"),
+    (I960, 960, "960-bit"),
+    (I1024, 1024, "1024-bit"),
+    (I1280, 1280, "1280-bit"),
+    (I1536, 1536, "1536-bit"),
+    (I1792, 1792, "1792-bit"),
+    (I2048, 2048, "2048-bit"),
+    (I3072, 3072, "3072-bit"),
+    (I3584, 3584, "3584-bit"),
+    (I4096, 4096, "4096-bit"),
+    (I4224, 4224, "4224-bit"),
+    (I4352, 4352, "4352-bit"),
+    (I6144, 6144, "6144-bit"),
+    (I8192, 8192, "8192-bit"),
+    (I16384, 16384, "16384-bit"),
+    (I32768, 32768, "32768-bit")
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {
     use subtle::ConditionallySelectable;
 
-    use crate::{ConstChoice, I128, U128};
+    use crate::int::I128;
+    use crate::ConstChoice;
+    use crate::U128;
 
     #[cfg(target_pointer_width = "64")]
     #[test]
@@ -382,5 +422,27 @@ mod tests {
         assert_eq!(*I128::ZERO.as_uint(), U128::ZERO);
         assert_eq!(*I128::ONE.as_uint(), U128::ONE);
         assert_eq!(*I128::MAX.as_uint(), U128::MAX >> 1);
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn serde() {
+        const TEST: I128 = I128::from_i64(0x0011223344556677i64);
+
+        let serialized = bincode::serialize(&TEST).unwrap();
+        let deserialized: I128 = bincode::deserialize(&serialized).unwrap();
+
+        assert_eq!(TEST, deserialized);
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn serde_owned() {
+        const TEST: I128 = I128::from_i64(0x0011223344556677i64);
+
+        let serialized = bincode::serialize(&TEST).unwrap();
+        let deserialized: I128 = bincode::deserialize_from(serialized.as_slice()).unwrap();
+
+        assert_eq!(TEST, deserialized);
     }
 }
