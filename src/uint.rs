@@ -195,7 +195,7 @@ impl<const LIMBS: usize> Uint<LIMBS> {
     ///
     /// Note: this is a conversion. For bit-value reinterpretation, see [`Uint::as_int`].
     pub const fn to_int(&self) -> ConstCtOption<Int<LIMBS>> {
-        Int::new_from_abs_sign(self.clone(), ConstChoice::FALSE)
+        Int::new_from_abs_sign(*self, ConstChoice::FALSE)
     }
 }
 
