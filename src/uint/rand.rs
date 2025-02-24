@@ -40,12 +40,21 @@ pub(crate) fn random_bits_core(
     for i in 0..nonzero_limbs - 1 {
         rng.try_fill_bytes(&mut buffer)
             .map_err(RandomBitsError::RandCore)?;
-        zeroed_limbs[i] = Limb(Word::from_be_bytes(buffer));
+        zeroed_limbs[i] = Limb(Word::from_le_bytes(buffer));
     }
 
     rng.try_fill_bytes(&mut buffer)
         .map_err(RandomBitsError::RandCore)?;
-    zeroed_limbs[nonzero_limbs - 1] = Limb(Word::from_be_bytes(buffer) & mask);
+    zeroed_limbs[nonzero_limbs - 1] = Limb(Word::from_le_bytes(buffer) & mask);
+
+    // Make sure both 32 and 64-bit implementations sample the same number of random bytes.
+    #[cfg(target_pointer_width = "32")]
+    {
+        if nonzero_limbs & 1 == 1 {
+            rng.try_fill_bytes(&mut buffer)
+                .map_err(RandomBitsError::RandCore)?;
+        }
+    }
 
     Ok(())
 }
@@ -138,8 +147,10 @@ pub(super) fn random_mod_core<T>(
 
 #[cfg(test)]
 mod tests {
-    use crate::{Limb, NonZero, RandomBits, RandomMod, U256};
-    use rand_core::SeedableRng;
+    use crate::uint::rand::random_bits_core;
+    use crate::{Limb, NonZero, RandomBits, RandomMod, Uint, U1024, U256};
+    use rand_chacha::{ChaCha20Core, ChaCha20Rng};
+    use rand_core::{RngCore, SeedableRng};
 
     #[test]
     fn random_mod() {
@@ -211,5 +222,35 @@ mod tests {
             let res = U256::random_bits(&mut rng, bit_length);
             assert_eq!(res, U256::ZERO);
         }
+    }
+
+    /// Make sure the random_bits output is consistent across platforms
+    #[test]
+    fn random_bits_platform_independence() {
+        let zero_seed = [0u8; 32];
+        let mut rng = ChaCha20Rng::from(ChaCha20Core::from_seed(zero_seed));
+
+        let mut val = U1024::ZERO;
+        let bytes = val.as_limbs_mut().as_mut_slice();
+        random_bits_core(&mut rng, bytes, 989).expect("safe");
+
+        assert_eq!(
+            val,
+            Uint::from_be_hex(concat![
+                "000000001F0AE1AC45FB0A51281FED31D539D874B03371D5434EE69C7621B729",
+                "ED7AEE323E53C6126965E348A0290FCB0D082D737C97BA987A385155BEE7079F",
+                "8665EEB269B687C31CA11815F4B8436A374AD8B83FE024778D4857517C5941DA",
+                "C70D778BCCEF36A81AED8DA0B819D2BD28BD8653E56A5D40903DF1A0ADE0B876"
+            ])
+        );
+
+        // Test that the RNG is in the same state
+        let mut state = [0u8; 16];
+        rng.fill_bytes(&mut state);
+
+        assert_eq!(
+            state,
+            [45, 9, 160, 230, 99, 38, 108, 225, 174, 126, 209, 8, 25, 104, 160, 117,]
+        );
     }
 }
