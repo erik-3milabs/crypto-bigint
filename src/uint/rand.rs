@@ -43,18 +43,23 @@ pub(crate) fn random_bits_core(
         zeroed_limbs[i] = Limb(Word::from_le_bytes(buffer));
     }
 
-    rng.try_fill_bytes(&mut buffer)
+    // This algorithm should sample the same number of random bytes, regardless of the pointer width
+    // of the target platform. To this end, special attention has to be paid to the case where
+    // 1 ≤ bit_length ≤ 32 mod 64. Bit strings of that size can be represented using `2X+1` 32-bit
+    // words or `X+1` 64-bit words. Note that 64*(X+1) - 32*(2X+1) = 32. Hence, if we sample full
+    // words only, a 64-bit platform will sample 32 bits more than a 32-bit platform. We prevent
+    // this by forcing both platforms to only sample 4 bytes for the last word in this case.
+    let slice = if partial_limb > 0 && partial_limb <= 32 {
+        // Note: we do not have to zeroize the second half of the buffer, as the mask will take
+        // care of this in the end.
+        &mut buffer[0..4]
+    } else {
+        buffer.as_mut_slice()
+    };
+
+    rng.try_fill_bytes(slice)
         .map_err(RandomBitsError::RandCore)?;
     zeroed_limbs[nonzero_limbs - 1] = Limb(Word::from_le_bytes(buffer) & mask);
-
-    // Make sure both 32 and 64-bit implementations sample the same number of random bytes.
-    #[cfg(target_pointer_width = "32")]
-    {
-        if nonzero_limbs & 1 == 1 {
-            rng.try_fill_bytes(&mut buffer)
-                .map_err(RandomBitsError::RandCore)?;
-        }
-    }
 
     Ok(())
 }
@@ -250,7 +255,7 @@ mod tests {
 
         assert_eq!(
             state,
-            [45, 9, 160, 230, 99, 38, 108, 225, 174, 126, 209, 8, 25, 104, 160, 117,]
+            [75, 121, 77, 111, 45, 9, 160, 230, 99, 38, 108, 225, 174, 126, 209, 8]
         );
     }
 }
