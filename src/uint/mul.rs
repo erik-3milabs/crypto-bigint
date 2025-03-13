@@ -20,7 +20,7 @@ pub(crate) mod karatsuba;
 // TODO(tarcieri): change this into a `const fn` when `const_mut_refs` is stable
 macro_rules! impl_schoolbook_multiplication {
     ($lhs:expr, $rhs:expr, $lo:expr, $hi:expr) => {{
-        if $lhs.len() != $lo.len() || $rhs.len() != $hi.len() {
+        if $lhs.len() + $rhs.len() > $lo.len() + $hi.len() {
             panic!("schoolbook multiplication length mismatch");
         }
 
@@ -33,8 +33,8 @@ macro_rules! impl_schoolbook_multiplication {
             while j < $rhs.len() {
                 let k = i + j;
 
-                if k >= $lhs.len() {
-                    ($hi[k - $lhs.len()], carry) = $hi[k - $lhs.len()].mac(xi, $rhs[j], carry);
+                if k >= $lo.len() {
+                    ($hi[k - $lo.len()], carry) = $hi[k - $lo.len()].mac(xi, $rhs[j], carry);
                 } else {
                     ($lo[k], carry) = $lo[k].mac(xi, $rhs[j], carry);
                 }
@@ -42,8 +42,8 @@ macro_rules! impl_schoolbook_multiplication {
                 j += 1;
             }
 
-            if i + j >= $lhs.len() {
-                $hi[i + j - $lhs.len()] = carry;
+            if i + j >= $lo.len() {
+                $hi[i + j - $lo.len()] = carry;
             } else {
                 $lo[i + j] = carry;
             }
