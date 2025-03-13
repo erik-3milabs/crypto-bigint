@@ -19,21 +19,23 @@ pub(crate) mod karatsuba;
 /// The most efficient method for small numbers.
 #[inline(always)]
 const fn schoolbook_multiplication(lhs: &[Limb], rhs: &[Limb], lo: &mut [Limb], hi: &mut [Limb]) {
-    if lhs.len() != lo.len() || rhs.len() != hi.len() {
+    let (lhs_len, rhs_len, lo_len, hi_len) = (lhs.len(), rhs.len(), lo.len(), hi.len());
+
+    if lhs_len + rhs_len > lo_len + hi_len {
         panic!("schoolbook multiplication length mismatch");
     }
 
     let mut i = 0;
-    while i < lhs.len() {
+    while i < lhs_len {
         let mut j = 0;
         let mut carry = Limb::ZERO;
         let xi = lhs[i];
 
-        while j < rhs.len() {
+        while j < rhs_len {
             let k = i + j;
 
-            if k >= lhs.len() {
-                (hi[k - lhs.len()], carry) = hi[k - lhs.len()].mac(xi, rhs[j], carry);
+            if k >= lo_len {
+                (hi[k - lo_len], carry) = hi[k - lo_len].mac(xi, rhs[j], carry);
             } else {
                 (lo[k], carry) = lo[k].mac(xi, rhs[j], carry);
             }
@@ -41,8 +43,8 @@ const fn schoolbook_multiplication(lhs: &[Limb], rhs: &[Limb], lo: &mut [Limb], 
             j += 1;
         }
 
-        if i + j >= lhs.len() {
-            hi[i + j - lhs.len()] = carry;
+        if i + j >= lo_len {
+            hi[i + j - lo_len] = carry;
         } else {
             lo[i + j] = carry;
         }
@@ -389,7 +391,22 @@ pub(crate) fn square_limbs(limbs: &[Limb], out: &mut [Limb]) {
 
 #[cfg(test)]
 mod tests {
-    use crate::{CheckedMul, ConstChoice, U64, U128, U192, U256, Zero};
+    use crate::uint::mul::schoolbook_multiplication;
+    use crate::{CheckedMul, ConcatMixed, ConstChoice, U64, U128, U192, U256, Zero};
+
+    #[test]
+    fn test_schoolbook_multiplication() {
+        let (mut lo, mut hi) = (U128::ZERO, U128::ZERO);
+        let lhs = U128::from_be_hex("000102030405060708090A0B0C0D0E0F");
+        let rhs = U128::from_be_hex("FEDCBA98765432100123456789ABCDEF");
+        schoolbook_multiplication(&lhs.limbs, &rhs.limbs, &mut lo.limbs, &mut hi.limbs);
+        let balanced_res: U256 = lo.concat_mixed(&hi);
+
+        let (mut lo_, mut hi_) = (U64::ZERO, U192::ZERO);
+        schoolbook_multiplication(&lhs.limbs, &rhs.limbs, &mut lo_.limbs, &mut hi_.limbs);
+        let unbalanced_res: U256 = lo_.concat_mixed(&hi_);
+        assert_eq!(balanced_res, unbalanced_res);
+    }
 
     #[test]
     fn mul_wide_zero_and_one() {
