@@ -343,7 +343,7 @@ pub(crate) const fn uint_mul_limbs<const LIMBS: usize, const RHS_LIMBS: usize>(
     lhs: &[Limb],
     rhs: &[Limb],
 ) -> (Uint<LIMBS>, Uint<RHS_LIMBS>) {
-    debug_assert!(lhs.len() == LIMBS && rhs.len() == RHS_LIMBS);
+    debug_assert!(lhs.len() + rhs.len() <= LIMBS + RHS_LIMBS);
     let mut lo: Uint<LIMBS> = Uint::<LIMBS>::ZERO;
     let mut hi = Uint::<RHS_LIMBS>::ZERO;
     impl_schoolbook_multiplication!(lhs, rhs, lo.limbs, hi.limbs);
