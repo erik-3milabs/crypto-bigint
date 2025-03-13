@@ -193,6 +193,18 @@ impl<const LIMBS: usize> Uint<LIMBS> {
         )
     }
 
+    /// Variable time equivalent of [`Uint::split_mul`].
+    ///
+    /// Note: this technique does not utilize the Karatsuba algorithm. If your code leverages
+    /// [`Uint`]s with a number of limbs that is a power of two, you might be better off calling
+    /// [`Uint::split_mul`] instead.
+    pub fn split_mul_vartime<const RHS_LIMBS: usize>(
+        &self,
+        rhs: &Uint<RHS_LIMBS>,
+    ) -> (Self, Uint<RHS_LIMBS>) {
+        self.bounded_split_mul(&rhs, self.limbs_vartime(), rhs.limbs_vartime())
+    }
+
     /// Perform wrapping multiplication, discarding overflow.
     pub const fn wrapping_mul<const H: usize>(&self, rhs: &Uint<H>) -> Self {
         self.split_mul(rhs).0
@@ -409,6 +421,15 @@ mod tests {
             lhs.split_mul(&rhs),
             lhs.bounded_split_mul(&rhs, U128::LIMBS, U64::LIMBS)
         );
+    }
+
+    #[test]
+    fn test_split_mul_vartime() {
+        let lhs =
+            U256::from_be_hex("33058DBC1A5F43EF6EC18B23749CC41884FA9B1E2D99B2215F240B162DC6E025");
+        let rhs =
+            U256::from_be_hex("5C25A77FC3B1D066FB34BB63473B6D7F28548AF6B4E3C09EB729F9FB949D8EF3");
+        assert_eq!(lhs.split_mul(&rhs), lhs.split_mul_vartime(&rhs))
     }
 
     #[test]
