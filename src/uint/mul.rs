@@ -173,6 +173,26 @@ impl<const LIMBS: usize> Uint<LIMBS> {
         uint_mul_limbs(&self.limbs, &rhs.limbs)
     }
 
+    /// Variant of [`Uint::split_mul`] that allows you to specify the number of limbs that should
+    /// be taken into account from either operand.
+    ///
+    /// Note: executes in time variable in the presented bounds.
+    ///
+    /// Note: this technique does not utilize the Karatsuba algorithm. If your code leverages
+    /// [`Uint`]s with a number of limbs that is a power of two, you might be better off calling
+    /// [`Uint::split_mul`] instead.
+    pub fn bounded_split_mul<const RHS_LIMBS: usize>(
+        &self,
+        rhs: &Uint<RHS_LIMBS>,
+        lhs_limbs_bound: usize,
+        rhs_limbs_bound: usize,
+    ) -> (Self, Uint<RHS_LIMBS>) {
+        uint_mul_limbs(
+            &self.limbs[..lhs_limbs_bound],
+            &rhs.limbs[..rhs_limbs_bound],
+        )
+    }
+
     /// Perform wrapping multiplication, discarding overflow.
     pub const fn wrapping_mul<const H: usize>(&self, rhs: &Uint<H>) -> Self {
         self.split_mul(rhs).0
@@ -406,6 +426,16 @@ mod tests {
         schoolbook_multiplication(&lhs.limbs, &rhs.limbs, &mut lo_.limbs, &mut hi_.limbs);
         let unbalanced_res: U256 = lo_.concat_mixed(&hi_);
         assert_eq!(balanced_res, unbalanced_res);
+    }
+
+    #[test]
+    fn test_bounded_split_mul() {
+        let lhs: U256 = U128::from_be_hex("8D10E11431CEB8E2731E50DFE1D3D3CC").resize();
+        let rhs: U256 = U64::from_be_hex("E47967D8C4F7D4DD").resize();
+        assert_eq!(
+            lhs.split_mul(&rhs),
+            lhs.bounded_split_mul(&rhs, U128::LIMBS, U64::LIMBS)
+        );
     }
 
     #[test]
