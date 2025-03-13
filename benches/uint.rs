@@ -1,7 +1,7 @@
 use criterion::{BatchSize, Criterion, black_box, criterion_group, criterion_main};
 use crypto_bigint::{
-    Limb, NonZero, Odd, Random, RandomBits, RandomMod, Reciprocal, U128, U256, U512, U1024, U2048,
-    U4096, Uint,
+    Limb, NonZero, Odd, Random, RandomBits, RandomMod, Reciprocal, U128, U256, U512, U1024, U1536,
+    U2048, U4096, Uint,
 };
 use rand_chacha::ChaCha8Rng;
 use rand_core::{RngCore, SeedableRng};
@@ -128,6 +128,14 @@ fn bench_mul(c: &mut Criterion) {
     group.bench_function("split_mul, U256xU256", |b| {
         b.iter_batched(
             || (U256::random(&mut rng), U256::random(&mut rng)),
+            |(x, y)| black_box(x.split_mul(&y)),
+            BatchSize::SmallInput,
+        )
+    });
+
+    group.bench_function("split_mul, U1536xU1536", |b| {
+        b.iter_batched(
+            || (U1536::random(&mut rng), U1536::random(&mut rng)),
             |(x, y)| black_box(x.split_mul(&y)),
             BatchSize::SmallInput,
         )
