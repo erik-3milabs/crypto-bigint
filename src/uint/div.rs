@@ -194,6 +194,22 @@ impl<const LIMBS: usize> Uint<LIMBS> {
         &self,
         rhs: &NonZero<Uint<RHS_LIMBS>>,
     ) -> (Self, Uint<RHS_LIMBS>) {
+        self.bounded_div_rem_vartime(&rhs, LIMBS)
+    }
+
+    /// Computes `self` / `rhs`, returns the quotient (q) and the remainder (r), assuming
+    /// `self` can be represented by an `Uint<lhs_limbs_upper_bound>`.
+    ///
+    /// This is variable only with respect to `rhs` and `lhs_limbs_upper_bound`.
+    ///
+    /// When used with a fixed `rhs` and `lhs_limbs_upper_bound`, this function is constant-time
+    /// with respect to `self`.
+    #[inline]
+    pub const fn bounded_div_rem_vartime<const RHS_LIMBS: usize>(
+        &self,
+        rhs: &NonZero<Uint<RHS_LIMBS>>,
+        lhs_limbs_upper_bound: usize,
+    ) -> (Self, Uint<RHS_LIMBS>) {
         // Based on Section 4.3.1, of The Art of Computer Programming, Volume 2, by Donald E. Knuth.
         // Further explanation at https://janmr.com/blog/2014/04/basic-multiple-precision-long-division/
 
@@ -209,7 +225,7 @@ impl<const LIMBS: usize> Uint<LIMBS> {
             );
             return (q, Uint::from_word(r.0));
         }
-        if yc > LIMBS {
+        if yc > lhs_limbs_upper_bound {
             // Divisor is greater than dividend. Return zero and the dividend as the
             // quotient and remainder
             return (Uint::ZERO, self.resize());
@@ -219,7 +235,7 @@ impl<const LIMBS: usize> Uint<LIMBS> {
         // 2^shift == d in the algorithm above.
         let shift = (Limb::BITS - (dbits % Limb::BITS)) % Limb::BITS;
 
-        let (x, mut x_hi) = self.shl_limb_vartime(shift, LIMBS);
+        let (x, mut x_hi) = self.shl_limb_vartime(shift, lhs_limbs_upper_bound);
         let mut x = x.to_limbs();
         let (y, _) = rhs.0.shl_limb_vartime(shift, yc);
         let mut y = y.to_limbs();
@@ -228,7 +244,7 @@ impl<const LIMBS: usize> Uint<LIMBS> {
 
         let mut i;
 
-        let mut xi = LIMBS - 1;
+        let mut xi = lhs_limbs_upper_bound - 1;
 
         loop {
             // Divide high dividend words by the high divisor word to estimate the quotient word
@@ -286,8 +302,8 @@ impl<const LIMBS: usize> Uint<LIMBS> {
 
         // Shift the quotient to the low limbs within dividend
         i = 0;
-        while i < LIMBS {
-            if i <= (LIMBS - yc) {
+        while i < lhs_limbs_upper_bound {
+            if i <= (lhs_limbs_upper_bound - yc) {
                 x[i] = x[i + yc - 1];
             } else {
                 x[i] = Limb::ZERO;
