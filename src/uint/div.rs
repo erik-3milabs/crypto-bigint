@@ -197,6 +197,16 @@ impl<const LIMBS: usize> Uint<LIMBS> {
         self.bounded_div_rem_vartime(&rhs, LIMBS)
     }
 
+    /// Computes `self` / `rhs`, returns the quotient (q) and the remainder (r)
+    ///
+    /// This is variable with respect to both `self` and `rhs`.
+    pub const fn div_rem_full_vartime<const RHS_LIMBS: usize>(
+        &self,
+        rhs: &NonZero<Uint<RHS_LIMBS>>,
+    ) -> (Self, Uint<RHS_LIMBS>) {
+        self.bounded_div_rem_vartime(&rhs, self.limbs_vartime())
+    }
+
     /// Computes `self` / `rhs`, returns the quotient (q) and the remainder (r), assuming
     /// `self` can be represented by an `Uint<lhs_limbs_upper_bound>`.
     ///
@@ -1063,6 +1073,22 @@ mod tests {
         assert_eq!(r4, expect.1);
         let r5 = Uint::rem_wide_vartime((lo, hi), &NonZero::new(y).unwrap());
         assert_eq!(r5.resize(), expect.1);
+    }
+
+    #[test]
+    fn test_div_rem_full_vartime() {
+        let lhs =
+            U256::from_be_hex("00000000000000001FA6213B15CC12A347981E57823D1D1A3F6A346B065AACC2");
+        let rhs =
+            U256::from_be_hex("0000000000000000000000000000000005B18B49EA102C05E4A2D5CACF3661C0")
+                .to_nz()
+                .unwrap();
+        let div_rem_ct = lhs.div_rem(&rhs);
+        let div_rem_vt = lhs.div_rem_vartime(&rhs);
+        let div_rem_vt_full = lhs.div_rem_full_vartime(&rhs);
+
+        assert_eq!(div_rem_ct, div_rem_vt);
+        assert_eq!(div_rem_ct, div_rem_vt_full);
     }
 
     #[test]
