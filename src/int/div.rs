@@ -340,10 +340,7 @@ impl<const LIMBS: usize> Int<LIMBS> {
     ) -> CtOption<Self> {
         NonZero::new(*rhs).and_then(|rhs| self.checked_div_rem_floor_full_vartime(&rhs).0.into())
     }
-}
 
-/// Checked div-floor operations.
-impl<const LIMBS: usize> Int<LIMBS> {
     /// Perform checked floored division, returning a [`ConstCtOption`] which `is_some` only if
     /// - the `rhs != 0`, and
     /// - `self != MIN` or `rhs != MINUS_ONE`.
@@ -372,19 +369,6 @@ impl<const LIMBS: usize> Int<LIMBS> {
     /// ```
     pub fn checked_div_floor(&self, rhs: &Self) -> CtOption<Self> {
         NonZero::new(*rhs).and_then(|rhs| self.checked_div_rem_floor(&rhs).0.into())
-    }
-
-    /// Variable time equivalent of [Self::checked_div_floor]
-    ///
-    /// This is variable only with respect to `rhs`.
-    ///
-    /// When used with a fixed `rhs`, this function is constant-time with respect
-    /// to `self`.
-    pub fn checked_div_floor_vartime<const RHS_LIMBS: usize>(
-        &self,
-        rhs: &Int<RHS_LIMBS>,
-    ) -> CtOption<Self> {
-        NonZero::new(*rhs).and_then(|rhs| self.checked_div_rem_floor_vartime(&rhs).0.into())
     }
 }
 
