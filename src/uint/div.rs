@@ -337,6 +337,12 @@ impl<const LIMBS: usize> Uint<LIMBS> {
         self.div_rem_vartime(rhs).1
     }
 
+    /// Computes `self` % `rhs`, returns the remainder in variable-time with respect to both `self`
+    /// and `rhs`.
+    pub const fn rem_full_vartime(&self, rhs: &NonZero<Self>) -> Self {
+        self.div_rem_full_vartime(rhs).1
+    }
+
     /// Computes `self` % `rhs`, returns the remainder.
     ///
     /// This is variable only with respect to `rhs`.
