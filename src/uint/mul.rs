@@ -147,7 +147,7 @@ impl<const LIMBS: usize> Uint<LIMBS> {
     /// Multiply `self` by `rhs`, returning a concatenated "wide" result.
     ///
     /// Executes in variable time with respect to both `self` and `rhs`.
-    pub const fn widening_mul_vartime<const RHS_LIMBS: usize, const WIDE_LIMBS: usize>(
+    pub fn widening_mul_vartime<const RHS_LIMBS: usize, const WIDE_LIMBS: usize>(
         &self,
         rhs: &Uint<RHS_LIMBS>,
     ) -> Uint<WIDE_LIMBS>
@@ -233,7 +233,7 @@ impl<const LIMBS: usize> Uint<LIMBS> {
     /// Note: this technique does not utilize the Karatsuba algorithm. If your code leverages
     /// [`Uint`]s with a number of limbs that is a power of two, you might be better off calling
     /// [`Uint::wrapping_mul`] instead.
-    pub const fn wrapping_mul_vartime<const H: usize>(&self, rhs: &Uint<H>) -> Self {
+    pub fn wrapping_mul_vartime<const H: usize>(&self, rhs: &Uint<H>) -> Self {
         self.split_mul_vartime(rhs).0
     }
 
@@ -250,10 +250,7 @@ impl<const LIMBS: usize> Uint<LIMBS> {
     /// Note: this technique does not utilize the Karatsuba algorithm. If your code leverages
     /// [`Uint`]s with a number of limbs that is a power of two, you might be better off calling
     /// [`Uint::saturating_mul`] instead.
-    pub const fn saturating_mul_vartime<const RHS_LIMBS: usize>(
-        &self,
-        rhs: &Uint<RHS_LIMBS>,
-    ) -> Self {
+    pub fn saturating_mul_vartime<const RHS_LIMBS: usize>(&self, rhs: &Uint<RHS_LIMBS>) -> Self {
         let (res, overflow) = self.split_mul_vartime(rhs);
         Self::select(&res, &Self::MAX, overflow.is_nonzero())
     }
