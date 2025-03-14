@@ -79,7 +79,7 @@ impl<const LIMBS: usize> Int<LIMBS> {
         self.div_rem_uint(rhs).0
     }
 
-    /// Variable time equivalent of [Self::div_uint`].
+    /// Variable time equivalent of [Self::div_uint].
     ///
     /// This is variable only with respect to `rhs`.
     ///
@@ -98,7 +98,7 @@ impl<const LIMBS: usize> Int<LIMBS> {
         self.div_rem_uint(rhs).1
     }
 
-    /// Variable time equivalent of [Self::rem_uint`].
+    /// Variable time equivalent of [Self::rem_uint].
     ///
     /// This is variable only with respect to `rhs`.
     ///
