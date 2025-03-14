@@ -202,7 +202,7 @@ impl<const LIMBS: usize> Uint<LIMBS> {
         &self,
         rhs: &Uint<RHS_LIMBS>,
     ) -> (Self, Uint<RHS_LIMBS>) {
-        self.bounded_split_mul(&rhs, self.limbs_vartime(), rhs.limbs_vartime())
+        self.bounded_split_mul(rhs, self.limbs_vartime(), rhs.limbs_vartime())
     }
 
     /// Perform wrapping multiplication, discarding overflow.
