@@ -500,6 +500,17 @@ impl<const LIMBS: usize> Uint<LIMBS> {
         self.div_rem_vartime(rhs).0
     }
 
+    /// Wrapped division is just normal division i.e. `self` / `rhs`
+    ///
+    /// There’s no way wrapping could ever happen.
+    /// This function exists, so that all operations are accounted for in the wrapping operations.
+    pub const fn wrapping_div_full_vartime<const RHS: usize>(
+        &self,
+        rhs: &NonZero<Uint<RHS>>,
+    ) -> Self {
+        self.div_rem_full_vartime(rhs).0
+    }
+
     /// Perform checked division, returning a [`CtOption`] which `is_some`
     /// only if the rhs != 0
     ///
