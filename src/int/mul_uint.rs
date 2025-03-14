@@ -77,7 +77,7 @@ impl<const LIMBS: usize> Int<LIMBS> {
     /// Note: even if `negate` is truthy, the magnitude might be zero!
     ///
     /// Executes in variable time with respect to both `self` and `rhs`.
-    pub const fn split_mul_uint_vartime<const RHS_LIMBS: usize>(
+    pub fn split_mul_uint_vartime<const RHS_LIMBS: usize>(
         &self,
         rhs: &Uint<RHS_LIMBS>,
     ) -> (Uint<{ LIMBS }>, Uint<{ RHS_LIMBS }>, ConstChoice) {
@@ -99,7 +99,7 @@ impl<const LIMBS: usize> Int<LIMBS> {
     /// Note: even if `negate` is truthy, the magnitude might be zero!
     ///
     /// Executes in variable time with respect to both `self` and `rhs`.
-    pub const fn split_mul_uint_right_vartime<const RHS_LIMBS: usize>(
+    pub fn split_mul_uint_right_vartime<const RHS_LIMBS: usize>(
         &self,
         rhs: &Uint<RHS_LIMBS>,
     ) -> (Uint<{ RHS_LIMBS }>, Uint<{ LIMBS }>, ConstChoice) {
@@ -111,7 +111,7 @@ impl<const LIMBS: usize> Int<LIMBS> {
     /// Multiply `self` by [`Uint`] `rhs`, returning a concatenated "wide" result.
     ///
     /// Executes in variable time with respect to both `self` and `rhs`.
-    pub const fn widening_mul_uint_vartime<const RHS_LIMBS: usize, const WIDE_LIMBS: usize>(
+    pub fn widening_mul_uint_vartime<const RHS_LIMBS: usize, const WIDE_LIMBS: usize>(
         &self,
         rhs: &Uint<RHS_LIMBS>,
     ) -> Int<WIDE_LIMBS>
