@@ -113,6 +113,53 @@ impl<const LIMBS: usize> Int<LIMBS> {
     ) -> Int<RHS_LIMBS> {
         self.div_rem_uint_vartime(rhs).1
     }
+
+    #[inline]
+    /// Fully variable time equivalent of [Self::div_rem_base_uint].
+    ///
+    /// This is variable with respect to both `self` and `rhs`.
+    const fn div_rem_base_uint_full_vartime<const RHS_LIMBS: usize>(
+        &self,
+        rhs: &NonZero<Uint<RHS_LIMBS>>,
+    ) -> (Uint<LIMBS>, Uint<RHS_LIMBS>, ConstChoice) {
+        let (lhs_mag, lhs_sgn) = self.abs_sign();
+        let (quotient, remainder) = lhs_mag.div_rem_full_vartime(rhs);
+        (quotient, remainder, lhs_sgn)
+    }
+
+    /// Fully variable time equivalent of [Self::div_rem_uint].
+    ///
+    /// This is variable with respect to both `self` and `rhs`.
+    pub const fn div_rem_uint_full_vartime<const RHS_LIMBS: usize>(
+        &self,
+        rhs: &NonZero<Uint<RHS_LIMBS>>,
+    ) -> (Self, Int<RHS_LIMBS>) {
+        let (quotient, remainder, lhs_sgn) = self.div_rem_base_uint_full_vartime(rhs);
+        (
+            Self(quotient).wrapping_neg_if(lhs_sgn),
+            remainder.as_int().wrapping_neg_if(lhs_sgn),
+        )
+    }
+
+    /// Fully variable time equivalent of [Self::div_uint].
+    ///
+    /// This is variable with respect to both `self` and `rhs`.
+    pub const fn div_uint_full_vartime<const RHS_LIMBS: usize>(
+        &self,
+        rhs: &NonZero<Uint<RHS_LIMBS>>,
+    ) -> Self {
+        self.div_rem_uint_full_vartime(rhs).0
+    }
+
+    /// Variable time equivalent of [Self::rem_uint].
+    ///
+    /// This is variable with respect to both `self` and `rhs`.
+    pub const fn rem_uint_full_vartime<const RHS_LIMBS: usize>(
+        &self,
+        rhs: &NonZero<Uint<RHS_LIMBS>>,
+    ) -> Int<RHS_LIMBS> {
+        self.div_rem_uint_full_vartime(rhs).1
+    }
 }
 
 /// Checked div-floor operations
