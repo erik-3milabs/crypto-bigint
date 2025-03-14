@@ -144,6 +144,20 @@ impl<const LIMBS: usize> Uint<LIMBS> {
         Uint::concat_mixed(&lo, &hi)
     }
 
+    /// Multiply `self` by `rhs`, returning a concatenated "wide" result.
+    ///
+    /// Executes in variable time with respect to both `self` and `rhs`.
+    pub const fn widening_mul_vartime<const RHS_LIMBS: usize, const WIDE_LIMBS: usize>(
+        &self,
+        rhs: &Uint<RHS_LIMBS>,
+    ) -> Uint<WIDE_LIMBS>
+    where
+        Self: ConcatMixed<Uint<RHS_LIMBS>, MixedOutput = Uint<WIDE_LIMBS>>,
+    {
+        let (lo, hi) = self.split_mul_vartime(rhs);
+        Uint::concat_mixed(&lo, &hi)
+    }
+
     /// Compute "wide" multiplication as a 2-tuple containing the `(lo, hi)` components of the product, whose sizes
     /// correspond to the sizes of the operands.
     pub const fn split_mul<const RHS_LIMBS: usize>(
