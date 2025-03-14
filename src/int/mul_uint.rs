@@ -67,6 +67,78 @@ impl<const LIMBS: usize> Int<LIMBS> {
     }
 }
 
+/// Variable time multiplication operations with `Uint`s.
+impl<const LIMBS: usize> Int<LIMBS> {
+    /// Compute "wide" multiplication between an [`Int`] and [`Uint`] as 3-tuple `(lo, hi, negate)`.
+    /// The `(lo, hi)` components contain the _magnitude of the product_, with sizes
+    /// corresponding to the sizes of the operands; `negate` indicates whether the result should be
+    /// negated when converted from [`Uint`] to [`Int`].
+    ///
+    /// Note: even if `negate` is truthy, the magnitude might be zero!
+    ///
+    /// Executes in variable time with respect to both `self` and `rhs`.
+    pub const fn split_mul_uint_vartime<const RHS_LIMBS: usize>(
+        &self,
+        rhs: &Uint<RHS_LIMBS>,
+    ) -> (Uint<{ LIMBS }>, Uint<{ RHS_LIMBS }>, ConstChoice) {
+        // Step 1. split self into its sign and magnitude.
+        let (lhs_abs, lhs_sgn) = self.abs_sign();
+
+        // Step 2. Multiply the magnitudes
+        let (lo, hi) = lhs_abs.split_mul_vartime(rhs);
+
+        // Step 3. negate if and only if self has a negative sign.
+        (lo, hi, lhs_sgn)
+    }
+
+    /// Compute "wide" multiplication between an [`Int`] and [`Uint`] as 3-tuple `(lo, hi, negate)`.
+    /// The `(lo, hi)` components contain the _magnitude of the product_, with sizes
+    /// corresponding to the sizes of the operands, in reversed order; `negate` indicates whether
+    /// the result should be negated when converted from [`Uint`] to [`Int`].
+    ///
+    /// Note: even if `negate` is truthy, the magnitude might be zero!
+    ///
+    /// Executes in variable time with respect to both `self` and `rhs`.
+    pub const fn split_mul_uint_right_vartime<const RHS_LIMBS: usize>(
+        &self,
+        rhs: &Uint<RHS_LIMBS>,
+    ) -> (Uint<{ RHS_LIMBS }>, Uint<{ LIMBS }>, ConstChoice) {
+        let (lhs_abs, lhs_sgn) = self.abs_sign();
+        let (lo, hi) = rhs.split_mul_vartime(&lhs_abs);
+        (lo, hi, lhs_sgn)
+    }
+
+    /// Multiply `self` by [`Uint`] `rhs`, returning a concatenated "wide" result.
+    ///
+    /// Executes in variable time with respect to both `self` and `rhs`.
+    pub const fn widening_mul_uint_vartime<const RHS_LIMBS: usize, const WIDE_LIMBS: usize>(
+        &self,
+        rhs: &Uint<RHS_LIMBS>,
+    ) -> Int<WIDE_LIMBS>
+    where
+        Uint<LIMBS>: ConcatMixed<Uint<RHS_LIMBS>, MixedOutput = Uint<WIDE_LIMBS>>,
+    {
+        let (lhs_abs, lhs_sign) = self.abs_sign();
+        let product_abs = lhs_abs.widening_mul_vartime(rhs);
+
+        // always fits
+        product_abs.wrapping_neg_if(lhs_sign).as_int()
+    }
+
+    /// Checked multiplication of self with an `Uint<RHS_LIMBS>`, where the result is to be stored
+    /// in an `Int<RHS_LIMBS>`.
+    ///
+    /// Executes in variable time with respect to both `self` and `rhs`.
+    pub fn checked_mul_uint_right_vartime<const RHS_LIMBS: usize>(
+        &self,
+        rhs: &Uint<RHS_LIMBS>,
+    ) -> CtOption<Int<RHS_LIMBS>> {
+        let (lo, hi, is_negative) = self.split_mul_uint_right_vartime(rhs);
+        let val = Int::<RHS_LIMBS>::new_from_abs_sign(lo, is_negative);
+        CtOption::from(val).and_then(|int| CtOption::new(int, hi.is_zero()))
+    }
+}
+
 impl<const LIMBS: usize, const RHS_LIMBS: usize> CheckedMul<Uint<RHS_LIMBS>> for Int<LIMBS> {
     #[inline]
     fn checked_mul(&self, rhs: &Uint<RHS_LIMBS>) -> CtOption<Self> {
