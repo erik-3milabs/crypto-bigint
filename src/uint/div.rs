@@ -194,7 +194,7 @@ impl<const LIMBS: usize> Uint<LIMBS> {
         &self,
         rhs: &NonZero<Uint<RHS_LIMBS>>,
     ) -> (Self, Uint<RHS_LIMBS>) {
-        self.bounded_div_rem_vartime(&rhs, LIMBS)
+        self.bounded_div_rem_vartime(rhs, LIMBS)
     }
 
     /// Computes `self` / `rhs`, returns the quotient (q) and the remainder (r)
@@ -204,7 +204,7 @@ impl<const LIMBS: usize> Uint<LIMBS> {
         &self,
         rhs: &NonZero<Uint<RHS_LIMBS>>,
     ) -> (Self, Uint<RHS_LIMBS>) {
-        self.bounded_div_rem_vartime(&rhs, self.limbs_vartime())
+        self.bounded_div_rem_vartime(rhs, self.limbs_vartime())
     }
 
     /// Computes `self` / `rhs`, returns the quotient (q) and the remainder (r), assuming
