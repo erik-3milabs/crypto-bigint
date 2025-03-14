@@ -195,6 +195,8 @@ impl<const LIMBS: usize> Uint<LIMBS> {
 
     /// Variable time equivalent of [`Uint::split_mul`].
     ///
+    /// This function executes in variable time with respect to both `self` and `rhs`.
+    ///
     /// Note: this technique does not utilize the Karatsuba algorithm. If your code leverages
     /// [`Uint`]s with a number of limbs that is a power of two, you might be better off calling
     /// [`Uint::split_mul`] instead.
@@ -210,9 +212,35 @@ impl<const LIMBS: usize> Uint<LIMBS> {
         self.split_mul(rhs).0
     }
 
+    /// Perform wrapping multiplication, discarding overflow.
+    ///
+    /// This function executes in variable time with respect to both `self` and `rhs`.
+    ///
+    /// Note: this technique does not utilize the Karatsuba algorithm. If your code leverages
+    /// [`Uint`]s with a number of limbs that is a power of two, you might be better off calling
+    /// [`Uint::wrapping_mul`] instead.
+    pub const fn wrapping_mul_vartime<const H: usize>(&self, rhs: &Uint<H>) -> Self {
+        self.split_mul_vartime(rhs).0
+    }
+
     /// Perform saturating multiplication, returning `MAX` on overflow.
     pub const fn saturating_mul<const RHS_LIMBS: usize>(&self, rhs: &Uint<RHS_LIMBS>) -> Self {
         let (res, overflow) = self.split_mul(rhs);
+        Self::select(&res, &Self::MAX, overflow.is_nonzero())
+    }
+
+    /// Perform saturating multiplication, returning `MAX` on overflow.
+    ///
+    /// This function executes in variable time with respect to both `self` and `rhs`.
+    ///
+    /// Note: this technique does not utilize the Karatsuba algorithm. If your code leverages
+    /// [`Uint`]s with a number of limbs that is a power of two, you might be better off calling
+    /// [`Uint::saturating_mul`] instead.
+    pub const fn saturating_mul_vartime<const RHS_LIMBS: usize>(
+        &self,
+        rhs: &Uint<RHS_LIMBS>,
+    ) -> Self {
+        let (res, overflow) = self.split_mul_vartime(rhs);
         Self::select(&res, &Self::MAX, overflow.is_nonzero())
     }
 }
