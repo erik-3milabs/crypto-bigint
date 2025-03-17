@@ -254,6 +254,15 @@ impl<const LIMBS: usize> Uint<LIMBS> {
         let (res, overflow) = self.split_mul_vartime(rhs);
         Self::select(&res, &Self::MAX, overflow.is_nonzero())
     }
+
+    /// Multiplying `self` with `rhs`, checking that the result fits in the original [`Uint`] size.
+    pub fn checked_mul_vartime<const RHS_LIMBS: usize>(
+        &self,
+        rhs: &Uint<RHS_LIMBS>,
+    ) -> CtOption<Self> {
+        let (lo, hi) = self.split_mul_vartime(rhs);
+        CtOption::new(lo, hi.is_zero())
+    }
 }
 
 /// Squaring operations
