@@ -161,6 +161,27 @@ impl<const LIMBS: usize> Int<LIMBS> {
 
 /// Checked div-floor operations
 impl<const LIMBS: usize> Int<LIMBS> {
+    /// Convert the result of `numerator/denominator` into that of `floor(numerator/denominator)`.
+    #[inline]
+    fn div_uint_to_floored_div_uint<const RHS_LIMBS: usize>(
+        denominator: &NonZero<Uint<RHS_LIMBS>>,
+        quotient: Uint<LIMBS>,
+        remainder: Uint<RHS_LIMBS>,
+        numerator_sgn: ConstChoice,
+    ) -> (Self, Uint<RHS_LIMBS>) {
+        // Increase the quotient by one when the numerator is negative and there is a non-zero remainder.
+        let modify = remainder.is_nonzero().and(numerator_sgn);
+        let quotient = Uint::select(&quotient, &quotient.wrapping_add(&Uint::ONE), modify);
+
+        // Invert the remainder when self is negative and there is a non-zero remainder.
+        let remainder = Uint::select(&remainder, &denominator.wrapping_sub(&remainder), modify);
+
+        // Negate if applicable
+        let quotient = Self(quotient).wrapping_neg_if(numerator_sgn);
+
+        (quotient, remainder)
+    }
+
     /// Perform floored division and mod:
     /// given `n` and `d`, computes `q` and `r` s.t. `n = qd + r` and `q = ⌊n/d⌋`.
     /// Note: this operation rounds **down**, not towards zero.
@@ -181,18 +202,7 @@ impl<const LIMBS: usize> Int<LIMBS> {
     /// ```
     pub fn div_rem_floor_uint(&self, rhs: &NonZero<Uint<LIMBS>>) -> (Self, Uint<LIMBS>) {
         let (quotient, remainder, lhs_sgn) = self.div_rem_base_uint(rhs);
-
-        // Increase the quotient by one when self is negative and there is a non-zero remainder.
-        let modify = remainder.is_nonzero().and(lhs_sgn);
-        let quotient = Uint::select(&quotient, &quotient.wrapping_add(&Uint::ONE), modify);
-
-        // Invert the remainder when self is negative and there is a non-zero remainder.
-        let remainder = Uint::select(&remainder, &rhs.wrapping_sub(&remainder), modify);
-
-        // Negate if applicable
-        let quotient = Self(quotient).wrapping_neg_if(lhs_sgn);
-
-        (quotient, remainder)
+        Self::div_uint_to_floored_div_uint(&rhs, quotient, remainder, lhs_sgn)
     }
 
     /// Variable time equivalent of [Self::div_rem_floor_uint`].
@@ -206,18 +216,18 @@ impl<const LIMBS: usize> Int<LIMBS> {
         rhs: &NonZero<Uint<RHS_LIMBS>>,
     ) -> (Self, Uint<RHS_LIMBS>) {
         let (quotient, remainder, lhs_sgn) = self.div_rem_base_uint_vartime(rhs);
+        Self::div_uint_to_floored_div_uint(rhs, quotient, remainder, lhs_sgn)
+    }
 
-        // Increase the quotient by one when self is negative and there is a non-zero remainder.
-        let modify = remainder.is_nonzero().and(lhs_sgn);
-        let quotient = Uint::select(&quotient, &quotient.wrapping_add(&Uint::ONE), modify);
-
-        // Invert the remainder when self is negative and there is a non-zero remainder.
-        let remainder = Uint::select(&remainder, &rhs.wrapping_sub(&remainder), modify);
-
-        // Negate if applicable
-        let quotient = Self(quotient).wrapping_neg_if(lhs_sgn);
-
-        (quotient, remainder)
+    /// Fully variable time equivalent of [Self::div_rem_floor_uint].
+    ///
+    /// This is variable with respect to both `self` and `rhs`.
+    pub fn div_rem_floor_uint_full_vartime<const RHS_LIMBS: usize>(
+        &self,
+        rhs: &NonZero<Uint<RHS_LIMBS>>,
+    ) -> (Self, Uint<RHS_LIMBS>) {
+        let (quotient, remainder, lhs_sgn) = self.div_rem_base_uint_full_vartime(&rhs);
+        Self::div_uint_to_floored_div_uint(rhs, quotient, remainder, lhs_sgn)
     }
 
     /// Perform checked division.
