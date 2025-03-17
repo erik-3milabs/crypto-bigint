@@ -98,6 +98,17 @@ impl<const LIMBS: usize> Int<LIMBS> {
         // always fits
         Int::from_bits(product_abs.wrapping_neg_if(product_sign))
     }
+
+    /// Multiply `self` by `rhs`, returning `Some` if the multiplication did not overflow and `None`
+    /// otherwise.
+    pub fn checked_mul_vartime<const RHS_LIMBS: usize>(
+        &self,
+        rhs: &Int<RHS_LIMBS>,
+    ) -> CtOption<Int<LIMBS>> {
+        let (lo, hi, is_negative) = self.split_mul_vartime(rhs);
+        let val = Self::new_from_abs_sign(lo, is_negative);
+        CtOption::from(val).and_then(|int| CtOption::new(int, hi.is_zero()))
+    }
 }
 
 /// Squaring operations.
