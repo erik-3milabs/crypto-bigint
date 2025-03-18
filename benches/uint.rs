@@ -141,7 +141,7 @@ fn bench_division(c: &mut Criterion) {
     group.bench_function("div/rem_full_vartime, U256/U128, full size", |b| {
         b.iter_batched(
             || {
-                let x = U256::random(&mut rng);
+                let x = U256::random(&mut OsRng);
                 let y: U256 = (U128::MAX, U128::ZERO).into();
                 (x, NonZero::new(y).unwrap())
             },
