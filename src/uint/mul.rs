@@ -226,6 +226,25 @@ impl<const LIMBS: usize> Uint<LIMBS> {
         self.split_mul(rhs).0
     }
 
+    /// Perform wrapping multiplication, discarding overflow. In the multiplication, only the lower
+    /// `lhs_limbs` limbs of `self` and the lower `rhs_limbs` of `rhs` are involved.
+    ///
+    /// This function executes in variable time with respect to both `lhs_limbs` and `rhs_limbs`.
+    /// When used with fixed `lhs_limbs` and `rhs_limbs`, this function is constant-time with
+    /// respect to `self` and `rhs`.
+    ///
+    /// Note: this technique does not utilize the Karatsuba algorithm. If your code leverages
+    /// [`Uint`]s with a number of limbs that is a power of two, you might be better off calling
+    /// [`Uint::wrapping_mul`] instead.
+    pub fn bounded_wrapping_mul<const H: usize>(
+        &self,
+        rhs: &Uint<H>,
+        lhs_limbs: usize,
+        rhs_limbs: usize,
+    ) -> Self {
+        self.bounded_split_mul(rhs, lhs_limbs, rhs_limbs).0
+    }
+
     /// Perform wrapping multiplication, discarding overflow.
     ///
     /// This function executes in variable time with respect to both `self` and `rhs`.
@@ -468,6 +487,16 @@ mod tests {
         assert_eq!(
             lhs.split_mul(&rhs),
             lhs.bounded_split_mul(&rhs, U128::LIMBS, U64::LIMBS)
+        );
+    }
+
+    #[test]
+    fn test_bounded_wrapping_mul() {
+        let lhs: U256 = U128::from_be_hex("8D10E11431CEB8E2731E50DFE1D3D3CC").resize();
+        let rhs: U256 = U64::from_be_hex("E47967D8C4F7D4DD").resize();
+        assert_eq!(
+            lhs.wrapping_mul(&rhs),
+            lhs.bounded_wrapping_mul(&rhs, U128::LIMBS, U64::LIMBS)
         );
     }
 
