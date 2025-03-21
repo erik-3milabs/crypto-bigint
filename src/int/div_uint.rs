@@ -124,11 +124,11 @@ impl<const LIMBS: usize> Int<LIMBS> {
     ///
     /// let three = U128::from(3u32).to_nz().unwrap();
     /// assert_eq!(
-    ///     I128::from(8).div_rem_floor_uint(&three).unwrap(),
+    ///     I128::from(8).div_rem_floor_uint(&three),
     ///     (I128::from(2), U128::from(2u32))
     /// );
     /// assert_eq!(
-    ///     I128::from(-8).div_rem_floor_uint(&three).unwrap(),
+    ///     I128::from(-8).div_rem_floor_uint(&three),
     ///     (I128::from(-3), U128::ONE)
     /// );
     /// ```
