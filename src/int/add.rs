@@ -47,7 +47,8 @@ impl<const LIMBS: usize> Add<&Int<LIMBS>> for Int<LIMBS> {
     type Output = Self;
 
     fn add(self, rhs: &Self) -> Self {
-        CtOption::from(self.checked_add(rhs)).expect("attempted to add with overflow")
+        self.checked_add(rhs)
+            .expect("attempted to add with overflow")
     }
 }
 

@@ -31,7 +31,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{Int, I1024, I128, U1024, U128, ConstChoice};
+    use crate::{ConstChoice, Int, I1024, I128, U1024, U128};
 
     #[test]
     fn gcd() {
@@ -59,8 +59,12 @@ mod tests {
         assert_eq!(res, target);
 
         // divide out factors
-        let x_on_gcd = x.checked_div(&Int::new_from_abs_sign(res, ConstChoice::FALSE).unwrap()).unwrap();
-        let y_on_gcd = y.checked_div(&Int::new_from_abs_sign(res, ConstChoice::FALSE).unwrap()).unwrap();
+        let x_on_gcd = x
+            .checked_div(&Int::new_from_abs_sign(res, ConstChoice::FALSE).unwrap())
+            .unwrap();
+        let y_on_gcd = y
+            .checked_div(&Int::new_from_abs_sign(res, ConstChoice::FALSE).unwrap())
+            .unwrap();
 
         assert_eq!(x_on_gcd.gcd(&y_on_gcd), U1024::ONE);
     }

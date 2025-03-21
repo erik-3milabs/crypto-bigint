@@ -133,7 +133,7 @@ impl<const LIMBS: usize> Int<LIMBS> {
     /// );
     /// ```
     pub fn div_rem_floor_uint(&self, rhs: &NonZero<Uint<LIMBS>>) -> (Self, Uint<LIMBS>) {
-        let (quotient, remainder, lhs_sgn) = self.div_rem_base_uint(&rhs);
+        let (quotient, remainder, lhs_sgn) = self.div_rem_base_uint(rhs);
 
         // Increase the quotient by one when self is negative and there is a non-zero remainder.
         let modify = remainder.is_nonzero().and(lhs_sgn);
@@ -158,7 +158,7 @@ impl<const LIMBS: usize> Int<LIMBS> {
         &self,
         rhs: &NonZero<Uint<RHS_LIMBS>>,
     ) -> (Self, Uint<RHS_LIMBS>) {
-        let (quotient, remainder, lhs_sgn) = self.div_rem_base_uint_vartime(&rhs);
+        let (quotient, remainder, lhs_sgn) = self.div_rem_base_uint_vartime(rhs);
 
         // Increase the quotient by one when self is negative and there is a non-zero remainder.
         let modify = remainder.is_nonzero().and(lhs_sgn);
