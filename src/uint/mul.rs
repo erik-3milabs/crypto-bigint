@@ -20,7 +20,7 @@ pub(crate) mod karatsuba;
 // TODO(tarcieri): change this into a `const fn` when `const_mut_refs` is stable
 macro_rules! impl_schoolbook_multiplication {
     ($lhs:expr, $rhs:expr, $lo:expr, $hi:expr) => {{
-        if $lhs.len() != $lo.len() || $rhs.len() != $hi.len() {
+        if $lhs.len() + $rhs.len() > $lo.len() + $hi.len() {
             panic!("schoolbook multiplication length mismatch");
         }
 
@@ -33,8 +33,8 @@ macro_rules! impl_schoolbook_multiplication {
             while j < $rhs.len() {
                 let k = i + j;
 
-                if k >= $lhs.len() {
-                    ($hi[k - $lhs.len()], carry) = $hi[k - $lhs.len()].mac(xi, $rhs[j], carry);
+                if k >= $lo.len() {
+                    ($hi[k - $lo.len()], carry) = $hi[k - $lo.len()].mac(xi, $rhs[j], carry);
                 } else {
                     ($lo[k], carry) = $lo[k].mac(xi, $rhs[j], carry);
                 }
@@ -42,8 +42,8 @@ macro_rules! impl_schoolbook_multiplication {
                 j += 1;
             }
 
-            if i + j >= $lhs.len() {
-                $hi[i + j - $lhs.len()] = carry;
+            if i + j >= $lo.len() {
+                $hi[i + j - $lo.len()] = carry;
             } else {
                 $lo[i + j] = carry;
             }
@@ -144,6 +144,20 @@ impl<const LIMBS: usize> Uint<LIMBS> {
         Uint::concat_mixed(&lo, &hi)
     }
 
+    /// Multiply `self` by `rhs`, returning a concatenated "wide" result.
+    ///
+    /// Executes in variable time with respect to both `self` and `rhs`.
+    pub fn widening_mul_vartime<const RHS_LIMBS: usize, const WIDE_LIMBS: usize>(
+        &self,
+        rhs: &Uint<RHS_LIMBS>,
+    ) -> Uint<WIDE_LIMBS>
+    where
+        Self: ConcatMixed<Uint<RHS_LIMBS>, MixedOutput = Uint<WIDE_LIMBS>>,
+    {
+        let (lo, hi) = self.split_mul_vartime(rhs);
+        Uint::concat_mixed(&lo, &hi)
+    }
+
     /// Compute "wide" multiplication as a 2-tuple containing the `(lo, hi)` components of the product, whose sizes
     /// correspond to the sizes of the operands.
     pub const fn split_mul<const RHS_LIMBS: usize>(
@@ -173,15 +187,100 @@ impl<const LIMBS: usize> Uint<LIMBS> {
         uint_mul_limbs(&self.limbs, &rhs.limbs)
     }
 
+    /// Variant of [`Uint::split_mul`] that allows you to specify the number of limbs that should
+    /// be taken into account from either operand.
+    ///
+    /// Note: executes in time variable in the presented bounds.
+    ///
+    /// Note: this technique does not utilize the Karatsuba algorithm. If your code leverages
+    /// [`Uint`]s with a number of limbs that is a power of two, you might be better off calling
+    /// [`Uint::split_mul`] instead.
+    pub fn bounded_split_mul<const RHS_LIMBS: usize>(
+        &self,
+        rhs: &Uint<RHS_LIMBS>,
+        lhs_limbs_bound: usize,
+        rhs_limbs_bound: usize,
+    ) -> (Self, Uint<RHS_LIMBS>) {
+        uint_mul_limbs(
+            &self.limbs[..lhs_limbs_bound],
+            &rhs.limbs[..rhs_limbs_bound],
+        )
+    }
+
+    /// Variable time equivalent of [`Uint::split_mul`].
+    ///
+    /// This function executes in variable time with respect to both `self` and `rhs`.
+    ///
+    /// Note: this technique does not utilize the Karatsuba algorithm. If your code leverages
+    /// [`Uint`]s with a number of limbs that is a power of two, you might be better off calling
+    /// [`Uint::split_mul`] instead.
+    pub fn split_mul_vartime<const RHS_LIMBS: usize>(
+        &self,
+        rhs: &Uint<RHS_LIMBS>,
+    ) -> (Self, Uint<RHS_LIMBS>) {
+        self.bounded_split_mul(rhs, self.limbs_vartime(), rhs.limbs_vartime())
+    }
+
     /// Perform wrapping multiplication, discarding overflow.
     pub const fn wrapping_mul<const H: usize>(&self, rhs: &Uint<H>) -> Self {
         self.split_mul(rhs).0
+    }
+
+    /// Perform wrapping multiplication, discarding overflow. In the multiplication, only the lower
+    /// `lhs_limbs` limbs of `self` and the lower `rhs_limbs` of `rhs` are involved.
+    ///
+    /// This function executes in variable time with respect to both `lhs_limbs` and `rhs_limbs`.
+    /// When used with fixed `lhs_limbs` and `rhs_limbs`, this function is constant-time with
+    /// respect to `self` and `rhs`.
+    ///
+    /// Note: this technique does not utilize the Karatsuba algorithm. If your code leverages
+    /// [`Uint`]s with a number of limbs that is a power of two, you might be better off calling
+    /// [`Uint::wrapping_mul`] instead.
+    pub fn bounded_wrapping_mul<const H: usize>(
+        &self,
+        rhs: &Uint<H>,
+        lhs_limbs: usize,
+        rhs_limbs: usize,
+    ) -> Self {
+        self.bounded_split_mul(rhs, lhs_limbs, rhs_limbs).0
+    }
+
+    /// Perform wrapping multiplication, discarding overflow.
+    ///
+    /// This function executes in variable time with respect to both `self` and `rhs`.
+    ///
+    /// Note: this technique does not utilize the Karatsuba algorithm. If your code leverages
+    /// [`Uint`]s with a number of limbs that is a power of two, you might be better off calling
+    /// [`Uint::wrapping_mul`] instead.
+    pub fn wrapping_mul_vartime<const H: usize>(&self, rhs: &Uint<H>) -> Self {
+        self.split_mul_vartime(rhs).0
     }
 
     /// Perform saturating multiplication, returning `MAX` on overflow.
     pub const fn saturating_mul<const RHS_LIMBS: usize>(&self, rhs: &Uint<RHS_LIMBS>) -> Self {
         let (res, overflow) = self.split_mul(rhs);
         Self::select(&res, &Self::MAX, overflow.is_nonzero())
+    }
+
+    /// Perform saturating multiplication, returning `MAX` on overflow.
+    ///
+    /// This function executes in variable time with respect to both `self` and `rhs`.
+    ///
+    /// Note: this technique does not utilize the Karatsuba algorithm. If your code leverages
+    /// [`Uint`]s with a number of limbs that is a power of two, you might be better off calling
+    /// [`Uint::saturating_mul`] instead.
+    pub fn saturating_mul_vartime<const RHS_LIMBS: usize>(&self, rhs: &Uint<RHS_LIMBS>) -> Self {
+        let (res, overflow) = self.split_mul_vartime(rhs);
+        Self::select(&res, &Self::MAX, overflow.is_nonzero())
+    }
+
+    /// Multiplying `self` with `rhs`, checking that the result fits in the original [`Uint`] size.
+    pub fn checked_mul_vartime<const RHS_LIMBS: usize>(
+        &self,
+        rhs: &Uint<RHS_LIMBS>,
+    ) -> CtOption<Self> {
+        let (lo, hi) = self.split_mul_vartime(rhs);
+        CtOption::new(lo, hi.is_zero())
     }
 }
 
@@ -343,7 +442,7 @@ pub(crate) const fn uint_mul_limbs<const LIMBS: usize, const RHS_LIMBS: usize>(
     lhs: &[Limb],
     rhs: &[Limb],
 ) -> (Uint<LIMBS>, Uint<RHS_LIMBS>) {
-    debug_assert!(lhs.len() == LIMBS && rhs.len() == RHS_LIMBS);
+    debug_assert!(lhs.len() + rhs.len() <= LIMBS + RHS_LIMBS);
     let mut lo: Uint<LIMBS> = Uint::<LIMBS>::ZERO;
     let mut hi = Uint::<RHS_LIMBS>::ZERO;
     impl_schoolbook_multiplication!(lhs, rhs, lo.limbs, hi.limbs);
@@ -380,6 +479,35 @@ pub(crate) fn square_limbs(limbs: &[Limb], out: &mut [Limb]) {
 #[cfg(test)]
 mod tests {
     use crate::{CheckedMul, ConstChoice, Zero, U128, U192, U256, U64};
+
+    #[test]
+    fn test_bounded_split_mul() {
+        let lhs: U256 = U128::from_be_hex("8D10E11431CEB8E2731E50DFE1D3D3CC").resize();
+        let rhs: U256 = U64::from_be_hex("E47967D8C4F7D4DD").resize();
+        assert_eq!(
+            lhs.split_mul(&rhs),
+            lhs.bounded_split_mul(&rhs, U128::LIMBS, U64::LIMBS)
+        );
+    }
+
+    #[test]
+    fn test_bounded_wrapping_mul() {
+        let lhs: U256 = U128::from_be_hex("8D10E11431CEB8E2731E50DFE1D3D3CC").resize();
+        let rhs: U256 = U64::from_be_hex("E47967D8C4F7D4DD").resize();
+        assert_eq!(
+            lhs.wrapping_mul(&rhs),
+            lhs.bounded_wrapping_mul(&rhs, U128::LIMBS, U64::LIMBS)
+        );
+    }
+
+    #[test]
+    fn test_split_mul_vartime() {
+        let lhs =
+            U256::from_be_hex("33058DBC1A5F43EF6EC18B23749CC41884FA9B1E2D99B2215F240B162DC6E025");
+        let rhs =
+            U256::from_be_hex("5C25A77FC3B1D066FB34BB63473B6D7F28548AF6B4E3C09EB729F9FB949D8EF3");
+        assert_eq!(lhs.split_mul(&rhs), lhs.split_mul_vartime(&rhs))
+    }
 
     #[test]
     fn mul_wide_zero_and_one() {

@@ -50,6 +50,58 @@ impl<const LIMBS: usize> Int<LIMBS> {
     }
 }
 
+/// Variable time multiplication operations
+impl<const LIMBS: usize> Int<LIMBS> {
+    /// Compute "wide" multiplication as a 3-tuple `(lo, hi, negate)`.
+    /// The `(lo, hi)` components contain the _magnitude of the product_, with sizes
+    /// corresponding to the sizes of the operands; `negate` indicates whether the result should be
+    /// negated when converted from [`Uint`] to [`Int`].
+    ///
+    /// Note: even if `negate` is truthy, the magnitude might be zero!
+    ///
+    /// Executes in variable time with respect to both `self` and `rhs`.
+    pub fn split_mul_vartime<const RHS_LIMBS: usize>(
+        &self,
+        rhs: &Int<RHS_LIMBS>,
+    ) -> (Uint<{ LIMBS }>, Uint<{ RHS_LIMBS }>, ConstChoice) {
+        let (lhs_abs, lhs_sgn) = self.abs_sign();
+        let (rhs_abs, rhs_sgn) = rhs.abs_sign();
+        let (lo, hi) = lhs_abs.split_mul_vartime(&rhs_abs);
+        let negate = lhs_sgn.xor(rhs_sgn);
+        (lo, hi, negate)
+    }
+
+    /// Multiply `self` by `rhs`, returning a concatenated "wide" result.
+    ///
+    /// Executes in variable time with respect to both `self` and `rhs`.
+    pub fn widening_mul_vartime<const RHS_LIMBS: usize, const WIDE_LIMBS: usize>(
+        &self,
+        rhs: &Int<RHS_LIMBS>,
+    ) -> Int<WIDE_LIMBS>
+    where
+        Uint<LIMBS>: ConcatMixed<Uint<RHS_LIMBS>, MixedOutput = Uint<WIDE_LIMBS>>,
+    {
+        let (lhs_abs, lhs_sign) = self.abs_sign();
+        let (rhs_abs, rhs_sign) = rhs.abs_sign();
+        let product_abs = lhs_abs.widening_mul_vartime(&rhs_abs);
+        let product_sign = lhs_sign.xor(rhs_sign);
+        Int::from_bits(product_abs.wrapping_neg_if(product_sign))
+    }
+
+    /// Multiply `self` by `rhs`, returning `Some` if the multiplication did not overflow and `None`
+    /// otherwise.
+    ///
+    /// Executes in variable time with respect to both `self` and `rhs.`
+    pub fn checked_mul_vartime<const RHS_LIMBS: usize>(
+        &self,
+        rhs: &Int<RHS_LIMBS>,
+    ) -> CtOption<Int<LIMBS>> {
+        let (lo, hi, is_negative) = self.split_mul_vartime(rhs);
+        let val = Self::new_from_abs_sign(lo, is_negative);
+        CtOption::from(val).and_then(|int| CtOption::new(int, hi.is_zero()))
+    }
+}
+
 /// Squaring operations.
 impl<const LIMBS: usize> Int<LIMBS> {
     /// Square self, returning a concatenated "wide" result.

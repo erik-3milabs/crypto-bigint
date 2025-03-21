@@ -194,6 +194,32 @@ impl<const LIMBS: usize> Uint<LIMBS> {
         &self,
         rhs: &NonZero<Uint<RHS_LIMBS>>,
     ) -> (Self, Uint<RHS_LIMBS>) {
+        self.bounded_div_rem_vartime(rhs, LIMBS)
+    }
+
+    /// Computes `self` / `rhs`, returns the quotient (q) and the remainder (r)
+    ///
+    /// This is variable with respect to both `self` and `rhs`.
+    pub const fn div_rem_full_vartime<const RHS_LIMBS: usize>(
+        &self,
+        rhs: &NonZero<Uint<RHS_LIMBS>>,
+    ) -> (Self, Uint<RHS_LIMBS>) {
+        self.bounded_div_rem_vartime(rhs, self.limbs_vartime())
+    }
+
+    /// Computes `self` / `rhs`, returns the quotient (q) and the remainder (r), assuming
+    /// `self` can be represented by an `Uint<lhs_limbs_upper_bound>`.
+    ///
+    /// This is variable only with respect to `rhs` and `lhs_limbs_upper_bound`.
+    ///
+    /// When used with a fixed `rhs` and `lhs_limbs_upper_bound`, this function is constant-time
+    /// with respect to `self`.
+    #[inline]
+    pub const fn bounded_div_rem_vartime<const RHS_LIMBS: usize>(
+        &self,
+        rhs: &NonZero<Uint<RHS_LIMBS>>,
+        lhs_limbs_upper_bound: usize,
+    ) -> (Self, Uint<RHS_LIMBS>) {
         // Based on Section 4.3.1, of The Art of Computer Programming, Volume 2, by Donald E. Knuth.
         // Further explanation at https://janmr.com/blog/2014/04/basic-multiple-precision-long-division/
 
@@ -209,7 +235,7 @@ impl<const LIMBS: usize> Uint<LIMBS> {
             );
             return (q, Uint::from_word(r.0));
         }
-        if yc > LIMBS {
+        if yc > lhs_limbs_upper_bound {
             // Divisor is greater than dividend. Return zero and the dividend as the
             // quotient and remainder
             return (Uint::ZERO, self.resize());
@@ -219,7 +245,7 @@ impl<const LIMBS: usize> Uint<LIMBS> {
         // 2^shift == d in the algorithm above.
         let shift = (Limb::BITS - (dbits % Limb::BITS)) % Limb::BITS;
 
-        let (x, mut x_hi) = self.shl_limb_vartime(shift, LIMBS);
+        let (x, mut x_hi) = self.shl_limb_vartime(shift, lhs_limbs_upper_bound);
         let mut x = x.to_limbs();
         let (y, _) = rhs.0.shl_limb_vartime(shift, yc);
         let mut y = y.to_limbs();
@@ -228,7 +254,7 @@ impl<const LIMBS: usize> Uint<LIMBS> {
 
         let mut i;
 
-        let mut xi = LIMBS - 1;
+        let mut xi = lhs_limbs_upper_bound - 1;
 
         loop {
             // Divide high dividend words by the high divisor word to estimate the quotient word
@@ -286,8 +312,8 @@ impl<const LIMBS: usize> Uint<LIMBS> {
 
         // Shift the quotient to the low limbs within dividend
         i = 0;
-        while i < LIMBS {
-            if i <= (LIMBS - yc) {
+        while i < lhs_limbs_upper_bound {
+            if i <= (lhs_limbs_upper_bound - yc) {
                 x[i] = x[i + yc - 1];
             } else {
                 x[i] = Limb::ZERO;
@@ -309,6 +335,12 @@ impl<const LIMBS: usize> Uint<LIMBS> {
     /// to `self`.
     pub const fn rem_vartime(&self, rhs: &NonZero<Self>) -> Self {
         self.div_rem_vartime(rhs).1
+    }
+
+    /// Computes `self` % `rhs`, returns the remainder in variable-time with respect to both `self`
+    /// and `rhs`.
+    pub const fn rem_full_vartime(&self, rhs: &NonZero<Self>) -> Self {
+        self.div_rem_full_vartime(rhs).1
     }
 
     /// Computes `self` % `rhs`, returns the remainder.
@@ -466,6 +498,17 @@ impl<const LIMBS: usize> Uint<LIMBS> {
     /// This function exists, so that all operations are accounted for in the wrapping operations.
     pub const fn wrapping_div_vartime<const RHS: usize>(&self, rhs: &NonZero<Uint<RHS>>) -> Self {
         self.div_rem_vartime(rhs).0
+    }
+
+    /// Wrapped division is just normal division i.e. `self` / `rhs`
+    ///
+    /// There’s no way wrapping could ever happen.
+    /// This function exists, so that all operations are accounted for in the wrapping operations.
+    pub const fn wrapping_div_full_vartime<const RHS: usize>(
+        &self,
+        rhs: &NonZero<Uint<RHS>>,
+    ) -> Self {
+        self.div_rem_full_vartime(rhs).0
     }
 
     /// Perform checked division, returning a [`CtOption`] which `is_some`
@@ -1011,6 +1054,22 @@ mod tests {
         assert_eq!(r4, expect.1);
         let r5 = Uint::rem_wide_vartime((lo, hi), &NonZero::new(y).unwrap());
         assert_eq!(r5.resize(), expect.1);
+    }
+
+    #[test]
+    fn test_div_rem_full_vartime() {
+        let lhs =
+            U256::from_be_hex("00000000000000001FA6213B15CC12A347981E57823D1D1A3F6A346B065AACC2");
+        let rhs =
+            U256::from_be_hex("0000000000000000000000000000000005B18B49EA102C05E4A2D5CACF3661C0")
+                .to_nz()
+                .unwrap();
+        let div_rem_ct = lhs.div_rem(&rhs);
+        let div_rem_vt = lhs.div_rem_vartime(&rhs);
+        let div_rem_vt_full = lhs.div_rem_full_vartime(&rhs);
+
+        assert_eq!(div_rem_ct, div_rem_vt);
+        assert_eq!(div_rem_ct, div_rem_vt_full);
     }
 
     #[test]
