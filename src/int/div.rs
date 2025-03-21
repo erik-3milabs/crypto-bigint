@@ -198,6 +198,34 @@ impl<const LIMBS: usize> Int<LIMBS> {
 
 /// Checked div-floor operations.
 impl<const LIMBS: usize> Int<LIMBS> {
+    /// Convert the output of `numerator / denominator` into that of `floor(numerator/denominator)`.
+    const fn div_rem_to_div_rem_floor<const DENOMINATOR_LIMBS: usize>(
+        quotient: Uint<LIMBS>,
+        remainder: Uint<DENOMINATOR_LIMBS>,
+        numerator_sign: ConstChoice,
+        denominator_abs: NonZero<Uint<DENOMINATOR_LIMBS>>,
+        denominator_sign: ConstChoice,
+    ) -> (ConstCtOption<Self>, Int<DENOMINATOR_LIMBS>) {
+        // Modify quotient and remainder when lhs and rhs have opposing signs and the remainder is
+        // non-zero.
+        let opposing_signs = numerator_sign.xor(denominator_sign);
+        let modify = remainder.is_nonzero().and(opposing_signs);
+
+        // Increase the quotient by one.
+        let quotient_plus_one = quotient.wrapping_add(&Uint::ONE); // cannot wrap.
+        let quotient = Uint::select(&quotient, &quotient_plus_one, modify);
+
+        // Invert the remainder.
+        let inv_remainder = denominator_abs.as_ref().wrapping_sub(&remainder);
+        let remainder = Uint::select(&remainder, &inv_remainder, modify);
+
+        // Negate output when lhs and rhs have opposing signs.
+        let quotient = Int::new_from_abs_sign(quotient, opposing_signs);
+        let remainder = remainder.as_int().wrapping_neg_if(opposing_signs); // rem always small enough for safe as_int conversion
+
+        (quotient, remainder)
+    }
+
     /// Perform checked division and mod, returning the quotient and remainder.
     ///
     /// The quotient is a [`ConstCtOption`] which `is_some` only if
@@ -228,29 +256,20 @@ impl<const LIMBS: usize> Int<LIMBS> {
     /// assert_eq!(quotient.unwrap(), I128::from(2));
     /// assert_eq!(remainder, I128::from(2));
     /// ```
-    pub const fn checked_div_rem_floor(&self, rhs: &NonZero<Self>) -> (ConstCtOption<Self>, Self) {
-        let (lhs_mag, lhs_sgn) = self.abs_sign();
-        let (rhs_mag, rhs_sgn) = rhs.abs_sign();
-        let (quotient, remainder) = lhs_mag.div_rem(&rhs_mag);
-
-        // Modify quotient and remainder when lhs and rhs have opposing signs and the remainder is
-        // non-zero.
-        let opposing_signs = lhs_sgn.xor(rhs_sgn);
-        let modify = remainder.is_nonzero().and(opposing_signs);
-
-        // Increase the quotient by one.
-        let quotient_plus_one = quotient.wrapping_add(&Uint::ONE); // cannot wrap.
-        let quotient = Uint::select(&quotient, &quotient_plus_one, modify);
-
-        // Invert the remainder.
-        let inv_remainder = rhs_mag.0.wrapping_sub(&remainder);
-        let remainder = Uint::select(&remainder, &inv_remainder, modify);
-
-        // Negate output when lhs and rhs have opposing signs.
-        let quotient = Int::new_from_abs_sign(quotient, opposing_signs);
-        let remainder = remainder.as_int().wrapping_neg_if(opposing_signs); // rem always small enough for safe as_int conversion
-
-        (quotient, remainder)
+    pub const fn checked_div_rem_floor(
+        &self,
+        denom: &NonZero<Self>,
+    ) -> (ConstCtOption<Self>, Self) {
+        let (numerator_abs, numerator_sgn) = self.abs_sign();
+        let (denominator_abs, denominator_sign) = denom.abs_sign();
+        let (quotient, remainder) = numerator_abs.div_rem(&denominator_abs);
+        Self::div_rem_to_div_rem_floor(
+            quotient,
+            remainder,
+            numerator_sgn,
+            denominator_abs,
+            denominator_sign,
+        )
     }
 
     /// Variable time equivalent of [Self::checked_div_rem_floor]
@@ -263,28 +282,16 @@ impl<const LIMBS: usize> Int<LIMBS> {
         &self,
         rhs: &NonZero<Int<RHS_LIMBS>>,
     ) -> (ConstCtOption<Self>, Int<RHS_LIMBS>) {
-        let (lhs_mag, lhs_sgn) = self.abs_sign();
-        let (rhs_mag, rhs_sgn) = rhs.abs_sign();
-        let (quotient, remainder) = lhs_mag.div_rem_vartime(&rhs_mag);
-
-        // Modify quotient and remainder when lhs and rhs have opposing signs and the remainder is
-        // non-zero.
-        let opposing_signs = lhs_sgn.xor(rhs_sgn);
-        let modify = remainder.is_nonzero().and(opposing_signs);
-
-        // Increase the quotient by one.
-        let quotient_plus_one = quotient.wrapping_add(&Uint::ONE); // cannot wrap.
-        let quotient = Uint::select(&quotient, &quotient_plus_one, modify);
-
-        // Invert the remainder.
-        let inv_remainder = rhs_mag.0.wrapping_sub(&remainder);
-        let remainder = Uint::select(&remainder, &inv_remainder, modify);
-
-        // Negate output when lhs and rhs have opposing signs.
-        let quotient = Int::new_from_abs_sign(quotient, opposing_signs);
-        let remainder = remainder.as_int().wrapping_neg_if(opposing_signs); // rem always small enough for safe as_int conversion
-
-        (quotient, remainder)
+        let (numerator_abs, numerator_sgn) = self.abs_sign();
+        let (denominator_abs, denominator_sgn) = rhs.abs_sign();
+        let (quotient, remainder) = numerator_abs.div_rem_vartime(&denominator_abs);
+        Self::div_rem_to_div_rem_floor(
+            quotient,
+            remainder,
+            numerator_sgn,
+            denominator_abs,
+            denominator_sgn,
+        )
     }
 
     /// Variable time equivalent of [Self::checked_div_floor]
@@ -307,28 +314,16 @@ impl<const LIMBS: usize> Int<LIMBS> {
         &self,
         rhs: &NonZero<Int<RHS_LIMBS>>,
     ) -> (ConstCtOption<Self>, Int<RHS_LIMBS>) {
-        let (lhs_mag, lhs_sgn) = self.abs_sign();
-        let (rhs_mag, rhs_sgn) = rhs.abs_sign();
-        let (quotient, remainder) = lhs_mag.div_rem_full_vartime(&rhs_mag);
-
-        // Modify quotient and remainder when lhs and rhs have opposing signs and the remainder is
-        // non-zero.
-        let opposing_signs = lhs_sgn.xor(rhs_sgn);
-        let modify = remainder.is_nonzero().and(opposing_signs);
-
-        // Increase the quotient by one.
-        let quotient_plus_one = quotient.wrapping_add(&Uint::ONE); // cannot wrap.
-        let quotient = Uint::select(&quotient, &quotient_plus_one, modify);
-
-        // Invert the remainder.
-        let inv_remainder = rhs_mag.0.wrapping_sub(&remainder);
-        let remainder = Uint::select(&remainder, &inv_remainder, modify);
-
-        // Negate output when lhs and rhs have opposing signs.
-        let quotient = Int::new_from_abs_sign(quotient, opposing_signs);
-        let remainder = remainder.as_int().wrapping_neg_if(opposing_signs); // rem always small enough for safe as_int conversion
-
-        (quotient, remainder)
+        let (numerator_abs, numerator_sgn) = self.abs_sign();
+        let (denominator_abs, denominator_sgn) = rhs.abs_sign();
+        let (quotient, remainder) = numerator_abs.div_rem_full_vartime(&denominator_abs);
+        Self::div_rem_to_div_rem_floor(
+            quotient,
+            remainder,
+            numerator_sgn,
+            denominator_abs,
+            denominator_sgn,
+        )
     }
 
     /// Fully variable time equivalent of [Self::checked_div_floor]
