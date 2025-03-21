@@ -1,8 +1,13 @@
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
 use crypto_bigint::{
-    Limb, NonZero, Odd, Random, RandomMod, Reciprocal, Uint, U128, U2048, U256, U4096,
+    Limb, NonZero, Odd, Random, RandomBits, RandomMod, Reciprocal, Uint, U128, U2048, U256, U4096,
 };
-use rand_core::OsRng;
+use rand_chacha::ChaCha8Rng;
+use rand_core::{OsRng, SeedableRng};
+
+fn make_rng() -> ChaCha8Rng {
+    ChaCha8Rng::seed_from_u64(123456789)
+}
 
 fn bench_random_bits(c: &mut Criterion) {
     let mut group = c.benchmark_group("random_bits");
