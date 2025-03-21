@@ -202,7 +202,7 @@ impl<const LIMBS: usize> Int<LIMBS> {
     /// ```
     pub fn div_rem_floor_uint(&self, rhs: &NonZero<Uint<LIMBS>>) -> (Self, Uint<LIMBS>) {
         let (quotient, remainder, lhs_sgn) = self.div_rem_base_uint(rhs);
-        Self::div_uint_to_floored_div_uint(&rhs, quotient, remainder, lhs_sgn)
+        Self::div_uint_to_floored_div_uint(rhs, quotient, remainder, lhs_sgn)
     }
 
     /// Variable time equivalent of [Self::div_rem_floor_uint`].
@@ -226,7 +226,7 @@ impl<const LIMBS: usize> Int<LIMBS> {
         &self,
         rhs: &NonZero<Uint<RHS_LIMBS>>,
     ) -> (Self, Uint<RHS_LIMBS>) {
-        let (quotient, remainder, lhs_sgn) = self.div_rem_base_uint_full_vartime(&rhs);
+        let (quotient, remainder, lhs_sgn) = self.div_rem_base_uint_full_vartime(rhs);
         Self::div_uint_to_floored_div_uint(rhs, quotient, remainder, lhs_sgn)
     }
 
