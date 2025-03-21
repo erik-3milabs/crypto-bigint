@@ -81,13 +81,8 @@ impl<const LIMBS: usize> Int<LIMBS> {
         &self,
         rhs: &Uint<RHS_LIMBS>,
     ) -> (Uint<{ LIMBS }>, Uint<{ RHS_LIMBS }>, ConstChoice) {
-        // Step 1. split self into its sign and magnitude.
         let (lhs_abs, lhs_sgn) = self.abs_sign();
-
-        // Step 2. Multiply the magnitudes
         let (lo, hi) = lhs_abs.split_mul_vartime(rhs);
-
-        // Step 3. negate if and only if self has a negative sign.
         (lo, hi, lhs_sgn)
     }
 
@@ -147,7 +142,7 @@ impl<const LIMBS: usize> Int<LIMBS> {
         rhs: &Uint<RHS_LIMBS>,
     ) -> CtOption<Int<RHS_LIMBS>> {
         let (lo, hi, is_negative) = self.split_mul_uint_right_vartime(rhs);
-        let val = Int::<RHS_LIMBS>::new_from_abs_sign(lo, is_negative);
+        let val = Int::new_from_abs_sign(lo, is_negative);
         CtOption::from(val).and_then(|int| CtOption::new(int, hi.is_zero()))
     }
 }
