@@ -679,5 +679,15 @@ mod tests {
             I128::MIN.checked_div_rem_floor(&I128::MINUS_ONE.to_nz().unwrap());
         assert_eq!(quotient.is_some(), ConstChoice::FALSE);
         assert_eq!(remainder, I128::ZERO);
+
+        let (quotient, remainder) =
+            I128::MIN.checked_div_rem_floor(&I128::from(3i32).to_nz().unwrap());
+        assert_eq!(quotient.is_some(), ConstChoice::TRUE);
+        let quotient = quotient.unwrap();
+        assert_eq!(
+            quotient,
+            I128::from_be_hex("D5555555555555555555555555555555")
+        );
+        assert_eq!(remainder, I128::MINUS_ONE);
     }
 }
