@@ -90,6 +90,8 @@ impl<const LIMBS: usize> Int<LIMBS> {
 
     /// Multiply `self` by `rhs`, returning `Some` if the multiplication did not overflow and `None`
     /// otherwise.
+    ///
+    /// Executes in variable time with respect to both `self` and `rhs.`
     pub fn checked_mul_vartime<const RHS_LIMBS: usize>(
         &self,
         rhs: &Int<RHS_LIMBS>,
