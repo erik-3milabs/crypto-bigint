@@ -1,6 +1,7 @@
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
 use crypto_bigint::{
-    Limb, NonZero, Odd, Random, RandomBits, RandomMod, Reciprocal, Uint, U128, U1536, U2048, U256, U4096,
+    Limb, NonZero, Odd, Random, RandomBits, RandomMod, Reciprocal, Uint,  U128, U1536, U2048,
+    U256, U4096,
 };
 use rand_chacha::ChaCha8Rng;
 use rand_core::{OsRng, SeedableRng};
