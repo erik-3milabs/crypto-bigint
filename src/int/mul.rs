@@ -64,19 +64,10 @@ impl<const LIMBS: usize> Int<LIMBS> {
         &self,
         rhs: &Int<RHS_LIMBS>,
     ) -> (Uint<{ LIMBS }>, Uint<{ RHS_LIMBS }>, ConstChoice) {
-        // Step 1: split operands into their signs and magnitudes.
         let (lhs_abs, lhs_sgn) = self.abs_sign();
         let (rhs_abs, rhs_sgn) = rhs.abs_sign();
-
-        // Step 2: multiply the magnitudes
         let (lo, hi) = lhs_abs.split_mul_vartime(&rhs_abs);
-
-        // Step 3. Determine if the result should be negated.
-        // This should be done if and only if lhs and rhs have opposing signs.
-        // Note: if either operand is zero, the resulting magnitude will also be zero. Negating
-        // zero, however, still yields zero, so having a truthy `negate` in that scenario is OK.
         let negate = lhs_sgn.xor(rhs_sgn);
-
         (lo, hi, negate)
     }
 
@@ -94,8 +85,6 @@ impl<const LIMBS: usize> Int<LIMBS> {
         let (rhs_abs, rhs_sign) = rhs.abs_sign();
         let product_abs = lhs_abs.widening_mul_vartime(&rhs_abs);
         let product_sign = lhs_sign.xor(rhs_sign);
-
-        // always fits
         Int::from_bits(product_abs.wrapping_neg_if(product_sign))
     }
 
