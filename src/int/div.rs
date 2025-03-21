@@ -149,14 +149,9 @@ impl<const LIMBS: usize> Int<LIMBS> {
         &self,
         rhs: &NonZero<Int<RHS_LIMBS>>,
     ) -> (Uint<LIMBS>, Uint<RHS_LIMBS>, ConstChoice, ConstChoice) {
-        // Step 1: split operands into signs and magnitudes.
         let (lhs_mag, lhs_sgn) = self.abs_sign();
         let (rhs_mag, rhs_sgn) = rhs.abs_sign();
-
-        // Step 2. Divide magnitudes
-        // safe to unwrap since rhs is NonZero.
         let (quotient, remainder) = lhs_mag.div_rem_full_vartime(&rhs_mag);
-
         (quotient, remainder, lhs_sgn, rhs_sgn)
     }
 
