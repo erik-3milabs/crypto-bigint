@@ -1,49 +1,11 @@
-use crate::uint::bingcd::tools::{const_max, const_min};
-use crate::{NonZero, Odd, U64, U128, Uint};
-
-impl<const LIMBS: usize> NonZero<Uint<LIMBS>> {
-    /// Compute the greatest common divisor of `self` and `rhs`.
-    pub const fn bingcd(&self, rhs: &Uint<LIMBS>) -> Self {
-        let val = self.as_ref();
-        // Leverage two GCD identity rules to make self and rhs odd.
-        // 1) gcd(2a, 2b) = 2 * gcd(a, b)
-        // 2) gcd(a, 2b) = gcd(a, b) if a is odd.
-        let i = val.trailing_zeros();
-        let j = rhs.trailing_zeros();
-        let k = const_min(i, j);
-
-        val.shr(i)
-            .to_odd()
-            .expect("val.shr(i) is odd by construction")
-            .bingcd(rhs)
-            .as_ref()
-            .shl(k)
-            .to_nz()
-            .expect("gcd of non-zero element with another element is non-zero")
-    }
-}
+use crate::{ConstChoice, Odd, U64, U128, Uint};
+use crate::uint::bingcd::tools::const_max;
 
 impl<const LIMBS: usize> Odd<Uint<LIMBS>> {
-    /// Compute the greatest common divisor of `self` and `rhs` using the Binary GCD algorithm.
-    ///
-    /// This function switches between the "classic" and "optimized" algorithm at a best-effort
-    /// threshold. When using [Uint]s with `LIMBS` close to the threshold, it may be useful to
-    /// manually test whether the classic or optimized algorithm is faster for your machine.
-    #[inline(always)]
-    pub const fn bingcd(&self, rhs: &Uint<LIMBS>) -> Self {
-        // Todo: tweak this threshold
-        // Note: we're swapping the parameters here for greater readability: Pornin's Algorithm 1
-        // and Algorithm 2 both require the second argument (m) to be odd. Given that the gcd
-        // is the same, regardless of the order of the parameters, this swap does not affect the
-        // result.
-        if LIMBS < 8 {
-            self.classic_bingcd(rhs)
-        } else {
-            self.optimized_bingcd(rhs)
-        }
-    }
+    /// The minimal number of binary GCD iterations required to guarantee successful completion.
+    const MINIMAL_BINGCD_ITERATIONS: u32 = 2 * Self::BITS - 1;
 
-    /// Computes `gcd(self, rhs)`, leveraging the (a constant time implementation of) the classic
+    /// Computes `gcd(self, rhs)`, leveraging (a constant time implementation of) the classic
     /// Binary GCD algorithm.
     ///
     /// Note: this algorithm is efficient for [Uint]s with relatively few `LIMBS`.
@@ -55,27 +17,37 @@ impl<const LIMBS: usize> Odd<Uint<LIMBS>> {
         // (self, rhs) corresponds to (m, y) in the Algorithm 1 notation.
         let (mut a, mut b) = (*rhs, *self.as_ref());
         let mut j = 0;
-        while j < (2 * Self::BITS - 1) {
+        while j < Self::MINIMAL_BINGCD_ITERATIONS {
+            Self::bingcd_step(&mut a, &mut b);
             j += 1;
-
-            let a_odd = a.is_odd();
-
-            // swap if a odd and a < b
-            let a_lt_b = Uint::lt(&a, &b);
-            let do_swap = a_odd.and(a_lt_b);
-            Uint::conditional_swap(&mut a, &mut b, do_swap);
-
-            // subtract b from a when a is odd
-            a = a.wrapping_sub(&Uint::select(&Uint::ZERO, &b, a_odd));
-
-            // Div a by two.
-            // safe to vartime; shr_vartime is variable in the value of shift only. Since this shift
-            // is a public constant, the constant time property of this algorithm is not impacted.
-            a = a.shr_vartime(1);
         }
 
         b.to_odd()
             .expect("gcd of an odd value with something else is always odd")
+    }
+
+    /// Binary GCD update step.
+    ///
+    /// This is a condensed, constant time execution of the following algorithm:
+    /// ```text
+    /// if a mod 2 == 1
+    ///    if a < b
+    ///        (a, b) ← (b, a)
+    ///    a ← a - b
+    /// a ← a/2
+    /// ```
+    ///
+    /// Note: assumes `b` to be odd. Might yield an incorrect result if this is not the case.
+    ///
+    /// Ref: Pornin, Algorithm 1, L3-9, <https://eprint.iacr.org/2020/972.pdf>.
+    #[inline]
+    const fn bingcd_step(a: &mut Uint<LIMBS>, b: &mut Uint<LIMBS>) {
+        let a_odd = a.is_odd();
+        let a_lt_b = Uint::lt(a, b);
+        Uint::conditional_swap(a, b, a_odd.and(a_lt_b));
+        *a = a
+            .wrapping_sub(&Uint::select(&Uint::ZERO, b, a_odd))
+            .shr_vartime(1);
     }
 
     /// Computes `gcd(self, rhs)`, leveraging the optimized Binary GCD algorithm.
@@ -89,7 +61,7 @@ impl<const LIMBS: usize> Odd<Uint<LIMBS>> {
     ///
     /// Ref: Pornin, Optimized Binary GCD for Modular Inversion, Algorithm 2.
     /// <https://eprint.iacr.org/2020/972.pdf>
-    #[inline(always)]
+    #[inline]
     pub const fn optimized_bingcd(&self, rhs: &Uint<LIMBS>) -> Self {
         self.optimized_bingcd_::<{ U64::BITS }, { U64::LIMBS }, { U128::LIMBS }>(rhs)
     }
@@ -109,15 +81,14 @@ impl<const LIMBS: usize> Odd<Uint<LIMBS>> {
     ///   `K` close to a (multiple of) the number of bits that fit in a single register.
     /// - `LIMBS_K`: should be chosen as the minimum number s.t. `Uint::<LIMBS>::BITS ≥ K`,
     /// - `LIMBS_2K`: should be chosen as the minimum number s.t. `Uint::<LIMBS>::BITS ≥ 2K`.
-    #[inline(always)]
+    #[inline]
     pub const fn optimized_bingcd_<const K: u32, const LIMBS_K: usize, const LIMBS_2K: usize>(
         &self,
         rhs: &Uint<LIMBS>,
     ) -> Self {
-        // (self, rhs) corresponds to (m, y) in the Algorithm 1 notation.
-        let (mut a, mut b) = (*rhs, *self.as_ref());
+        let (mut a, mut b) = (*self.as_ref(), *rhs);
 
-        let iterations = (2 * Self::BITS - 1).div_ceil(K);
+        let iterations = Self::MINIMAL_BINGCD_ITERATIONS.div_ceil(K);
         let mut i = 0;
         while i < iterations {
             i += 1;
@@ -130,25 +101,18 @@ impl<const LIMBS: usize> Odd<Uint<LIMBS>> {
             // Compute the K-1 iteration update matrix from a_ and b_
             // Safe to vartime; function executes in time variable in `iterations` only, which is
             // a public constant K-1 here.
-            let (matrix, log_upper_bound) = b_
+            let (.., matrix) = a_
                 .to_odd()
-                .expect("b_ is always odd")
-                .partial_binxgcd_vartime::<LIMBS_K>(&a_, K - 1);
+                .expect("a_ is always odd")
+                .partial_binxgcd_vartime::<LIMBS_K>(&b_, K - 1, ConstChoice::FALSE);
 
             // Update `a` and `b` using the update matrix
             let (updated_a, updated_b) = matrix.extended_apply_to((a, b));
-
-            a = updated_a
-                .div_2k(log_upper_bound)
-                .abs_drop_extension()
-                .expect("extension is zero");
-            b = updated_b
-                .div_2k(log_upper_bound)
-                .abs_drop_extension()
-                .expect("extension is zero");
+            (a, _) = updated_a.wrapping_drop_extension();
+            (b, _) = updated_b.wrapping_drop_extension();
         }
 
-        b.to_odd()
+        a.to_odd()
             .expect("gcd of an odd value with something else is always odd")
     }
 }

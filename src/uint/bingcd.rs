@@ -1,8 +1,4 @@
-//! This module implements (a constant variant of) the Optimized Extended Binary GCD algorithm,
-//! which is described by Pornin as Algorithm 2 in "Optimized Binary GCD for Modular Inversion".
-//! Ref: <https://eprint.iacr.org/2020/972.pdf>
-
-use crate::Uint;
+//! This module implements Binary GCD for [`Uint`]
 
 mod extension;
 mod gcd;
@@ -11,14 +7,58 @@ mod tools;
 
 mod xgcd;
 
+use crate::{NonZero, Odd, Uint};
+use crate::uint::bingcd::tools::const_min;
+
 impl<const LIMBS: usize> Uint<LIMBS> {
     /// Compute the greatest common divisor of `self` and `rhs`.
     pub const fn bingcd(&self, rhs: &Self) -> Self {
         let self_is_zero = self.is_nonzero().not();
-        let self_nz = Uint::select(self, &Uint::ONE, self_is_zero)
-            .to_nz()
-            .expect("self is non zero by construction");
+        // Note: is non-zero by construction
+        let self_nz = NonZero(Uint::select(self, &Uint::ONE, self_is_zero));
         Uint::select(self_nz.bingcd(rhs).as_ref(), rhs, self_is_zero)
+    }
+}
+
+impl<const LIMBS: usize> NonZero<Uint<LIMBS>> {
+    /// Compute the greatest common divisor of `self` and `rhs`.
+    pub const fn bingcd(&self, rhs: &Uint<LIMBS>) -> Self {
+        let lhs = self.as_ref();
+
+        // Note the following two GCD identity rules:
+        // 1) gcd(2a, 2b) = 2 · gcd(a, b), and
+        // 2) gcd(a, 2b) = gcd(a, b) if a is odd.
+        //
+        // Combined, these rules imply that
+        // 3) gcd(2^i · a, 2^j · b) = 2^k · gcd(a, b), with k = min(i, j).
+        //
+        // However, to save ourselves having to divide out 2^j, we also note that
+        // 4) 2^k · gcd(a, b) = 2^k · gcd(a, 2^j · b)
+
+        let i = lhs.is_nonzero().select_u32(0, lhs.trailing_zeros());
+        let j = rhs.is_nonzero().select_u32(0, rhs.trailing_zeros());
+        let k = const_min(i, j);
+
+        let odd_lhs = Odd(lhs.shr(i));
+        let gcd_div_2k = odd_lhs.bingcd(rhs);
+        NonZero(gcd_div_2k.as_ref().shl(k))
+    }
+}
+
+impl<const LIMBS: usize> Odd<Uint<LIMBS>> {
+    /// Compute the greatest common divisor of `self` and `rhs` using the Binary GCD algorithm.
+    ///
+    /// This function switches between the "classic" and "optimized" algorithm at a best-effort
+    /// threshold. When using [Uint]s with `LIMBS` close to the threshold, it may be useful to
+    /// manually test whether the classic or optimized algorithm is faster for your machine.
+    #[inline(always)]
+    pub const fn bingcd(&self, rhs: &Uint<LIMBS>) -> Self {
+        // Todo: tweak this threshold
+        if LIMBS < 8 {
+            self.classic_bingcd(rhs)
+        } else {
+            self.optimized_bingcd(rhs)
+        }
     }
 }
 
