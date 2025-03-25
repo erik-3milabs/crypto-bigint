@@ -1,8 +1,9 @@
 //! Operations related to computing the inverse of an [`Int`] modulo a [`Uint`].
 
+use subtle::CtOption;
+
 use crate::modular::SafeGcdInverter;
 use crate::{ConstantTimeSelect, Int, InvMod, NonZero, Odd, PrecomputeInverter, Uint};
-use subtle::CtOption;
 
 impl<const LIMBS: usize, const UNSAT_LIMBS: usize> Int<LIMBS>
 where

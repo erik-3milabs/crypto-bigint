@@ -81,7 +81,7 @@ impl<const LIMBS: usize> Int<LIMBS> {
         let masked_msb = self.bitand(&Self::SIGN_MASK);
         let inverse_shift = shift.saturating_sub(1);
         let shifted_masked_msb = Uint::shr_vartime(&masked_msb.0, inverse_shift);
-        let msbs = Self(shifted_masked_msb).carrying_neg().0;
+        let msbs = Self(shifted_masked_msb).wrapping_neg();
 
         ConstCtOption::some(logical_shr.bitxor(&msbs))
     }
