@@ -36,6 +36,8 @@ mod shr;
 mod sign;
 mod sub;
 
+pub use bingcd::{IntBinxgcdOutput, NonZeroIntBinxgcdOutput, OddIntBinxgcdOutput};
+
 #[cfg(feature = "rand_core")]
 mod rand;
 
