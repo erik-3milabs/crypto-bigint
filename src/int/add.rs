@@ -5,15 +5,9 @@ use core::ops::{Add, AddAssign};
 use num_traits::WrappingAdd;
 use subtle::{Choice, CtOption};
 
-use crate::{Checked, CheckedAdd, ConstChoice, ConstCtOption, Int, Wrapping};
+use crate::{Checked, CheckedAdd, ConstChoice, Int, Wrapping};
 
 impl<const LIMBS: usize> Int<LIMBS> {
-    /// Perform checked addition. Returns `none` when the addition overflowed.
-    pub const fn checked_add(&self, rhs: &Self) -> ConstCtOption<Self> {
-        let (value, overflow) = self.overflowing_add(rhs);
-        ConstCtOption::new(value, overflow.not())
-    }
-
     /// Perform addition, raising the `overflow` flag on overflow.
     pub const fn overflowing_add(&self, rhs: &Self) -> (Self, ConstChoice) {
         // Step 1. add operands
@@ -108,7 +102,7 @@ impl<const LIMBS: usize> WrappingAdd for Int<LIMBS> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{ConstChoice, I128, U128};
+    use crate::{CheckedAdd, ConstChoice, I128, U128};
 
     #[test]
     fn checked_add() {
