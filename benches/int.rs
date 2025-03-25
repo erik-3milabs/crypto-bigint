@@ -5,7 +5,8 @@ use num_traits::WrappingSub;
 use rand_core::OsRng;
 
 use crypto_bigint::{
-    NonZero, Random, I1024, I128, I2048, I256, I4096, I512, U1024, U128, U2048, U256, U4096, U512,
+    Gcd, NonZero, Random, I1024, I128, I2048, I256, I4096, I512, U1024, U128, U2048, U256, U4096,
+    U512,
 };
 
 fn bench_mul(c: &mut Criterion) {
