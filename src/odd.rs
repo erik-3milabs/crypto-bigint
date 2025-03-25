@@ -1,8 +1,11 @@
 //! Wrapper type for non-zero integers.
 
-use crate::{Int, Integer, Limb, NonZero, Uint};
+use crate::{Integer, Limb, NonZero, Uint};
 use core::{cmp::Ordering, fmt, ops::Deref};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
+
+#[cfg(feature = "rand_core")]
+use crate::Int;
 
 #[cfg(feature = "alloc")]
 use crate::BoxedUint;
