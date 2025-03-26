@@ -91,28 +91,27 @@ impl<const LIMBS: usize> Uint<LIMBS> {
         let (mut a, mut b) = (*self, *rhs);
         let mut matrix = PxgcdMatrix::UNIT;
 
+        let (mut a_bits, mut b_bits) = (a.bits(), b.bits());
         loop {
             // Make sure a >= b
             let a_lt_b = Uint::lt(&a, &b);
             Uint::conditional_swap(&mut a, &mut b, a_lt_b);
             matrix.swap_rows_if(a_lt_b);
+            a_lt_b.conditional_swap_u32(&mut a_bits, &mut b_bits);
 
             // loop invariant
             debug_assert!(a >= b);
 
-            let a_bits = a.bits();
             if a_bits <= threshold {
                 break;
             }
 
             // Find the largest k such that a >= b*2^k
-            let b_bits = b.bits();
             let mut k = a_bits - b_bits;
             let mut b_2k = b.shl(k);
-            if b_2k > a {
-                k -= 1;
-                b_2k = b_2k.shr_vartime(1)
-            }
+            let overshoot = Uint::gt(&b_2k, &a);
+            k -= overshoot.select_u32(0, 1);
+            b_2k = Uint::select(&b_2k, &b_2k.shr_vartime(1), overshoot);
 
             // Subtract b*2^k from a
             a = a.wrapping_sub(&b_2k);
@@ -120,6 +119,7 @@ impl<const LIMBS: usize> Uint<LIMBS> {
                 k,
                 ConstChoice::TRUE,
             );
+            a_bits = a.bits();
         }
 
         // Make sure the matrix has a positive determinant
