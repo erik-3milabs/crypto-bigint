@@ -25,6 +25,7 @@ mod add;
 pub(crate) mod bingcd;
 mod div_by_2;
 mod mul;
+mod partial_xgcd;
 mod pow;
 pub(crate) mod safegcd;
 mod sub;
