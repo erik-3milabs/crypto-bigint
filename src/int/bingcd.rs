@@ -32,7 +32,7 @@ impl<T: Copy, const LIMBS: usize> BaseIntBinxgcdOutput<T, LIMBS> {
     }
 
     /// Provide mutable access to the quotients `lhs.gcd` and `rhs/gcd`.
-    pub const fn quotients_as_mut(&mut self) -> (&mut Int<LIMBS>, &mut Int<LIMBS>) {
+    pub fn quotients_as_mut(&mut self) -> (&mut Int<LIMBS>, &mut Int<LIMBS>) {
         (&mut self.lhs_on_gcd, &mut self.rhs_on_gcd)
     }
 
@@ -42,7 +42,7 @@ impl<T: Copy, const LIMBS: usize> BaseIntBinxgcdOutput<T, LIMBS> {
     }
 
     /// Provide mutable access to the Bézout coefficients.
-    pub const fn bezout_coefficients_as_mut(&mut self) -> (&mut Int<LIMBS>, &mut Int<LIMBS>) {
+    pub fn bezout_coefficients_as_mut(&mut self) -> (&mut Int<LIMBS>, &mut Int<LIMBS>) {
         (&mut self.x, &mut self.y)
     }
 }
