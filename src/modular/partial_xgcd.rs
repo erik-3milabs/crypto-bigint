@@ -1,5 +1,4 @@
 use crate::{ConstChoice, Uint};
-use num_traits::WrappingSub;
 
 /// The matrix representation used in the partial extended gcd algorithm.
 #[derive(Debug, PartialEq)]
@@ -69,7 +68,8 @@ impl<const LIMBS: usize> PxgcdMatrix<LIMBS> {
     /// [ 0    1 ] [ m10 m11 ]
     /// ```
     /// if `mul.is_true()`, and nothing otherwise.
-    pub(crate) fn conditional_left_mul_by_upper_triangular_matrix_with_negative_2k(
+    #[inline]
+    fn conditional_left_mul_by_upper_triangular_matrix_with_negative_2k(
         &mut self,
         k: u32,
         mul: ConstChoice,
@@ -89,22 +89,22 @@ impl<const LIMBS: usize> Uint<LIMBS> {
         threshold: u32,
     ) -> (Self, Self, PxgcdMatrix<LIMBS>) {
         let (mut a, mut b) = (*self, *rhs);
+        let (mut a_bits, mut b_bits) = (a.bits(), b.bits());
         let mut matrix = PxgcdMatrix::UNIT;
 
-        let (mut a_bits, mut b_bits) = (a.bits(), b.bits());
-        loop {
-            // Make sure a >= b
-            let a_lt_b = Uint::lt(&a, &b);
-            Uint::conditional_swap(&mut a, &mut b, a_lt_b);
-            matrix.swap_rows_if(a_lt_b);
-            a_lt_b.conditional_swap_u32(&mut a_bits, &mut b_bits);
+        // Make sure a >= b
+        let a_lt_b = Uint::lt(&a, &b);
+        Uint::conditional_swap(&mut a, &mut b, a_lt_b);
+        a_lt_b.conditional_swap_u32(&mut a_bits, &mut b_bits);
+        matrix.swap_rows_if(a_lt_b);
 
-            // loop invariant
+        let iterations = 2 * (Uint::<LIMBS>::BITS - threshold) - 1;
+        let mut i = 0;
+        while i < iterations {
+            i += 1;
+
             debug_assert!(a >= b);
-
-            if a_bits <= threshold {
-                break;
-            }
+            let loop_is_active = ConstChoice::from_u32_lt(threshold, a_bits);
 
             // Find the largest k such that a >= b*2^k
             let mut k = a_bits - b_bits;
@@ -114,12 +114,18 @@ impl<const LIMBS: usize> Uint<LIMBS> {
             b_2k = Uint::select(&b_2k, &b_2k.shr_vartime(1), overshoot);
 
             // Subtract b*2^k from a
-            a = a.wrapping_sub(&b_2k);
+            a = Uint::select(&a, &a.wrapping_sub(&b_2k), loop_is_active);
             matrix.conditional_left_mul_by_upper_triangular_matrix_with_negative_2k(
                 k,
-                ConstChoice::TRUE,
+                loop_is_active,
             );
             a_bits = a.bits();
+
+            // Make sure a >= b
+            let a_lt_b = Uint::lt(&a, &b);
+            Uint::conditional_swap(&mut a, &mut b, a_lt_b);
+            a_lt_b.conditional_swap_u32(&mut a_bits, &mut b_bits);
+            matrix.swap_rows_if(a_lt_b);
         }
 
         // Make sure the matrix has a positive determinant
@@ -206,7 +212,7 @@ mod tests {
 
     mod test_pxgcd {
         use crate::modular::partial_xgcd::PxgcdMatrix;
-        use crate::{ConstChoice, U64};
+        use crate::{ConstChoice, U1024, U64};
 
         #[test]
         fn text_partial_xgcd_unit() {
@@ -250,6 +256,19 @@ mod tests {
 
             assert_eq!(partial_a, U64::from(3u64));
             assert_eq!(partial_b, U64::from(23u64));
+
+            assert_eq!(matrix.wrapping_apply((a, b)), (partial_a, partial_b));
+        }
+
+        #[test]
+        fn text_partial_xgcd_large() {
+            let threshold = 512;
+
+            let (a, b) = (U1024::MAX, U1024::ONE.shl(750));
+            let (partial_a, partial_b, matrix) = a.partial_xgcd(&b, threshold);
+
+            assert!(partial_a.bits() <= threshold);
+            assert!(partial_b.bits() <= threshold);
 
             assert_eq!(matrix.wrapping_apply((a, b)), (partial_a, partial_b));
         }

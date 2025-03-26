@@ -1,7 +1,7 @@
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
 use crypto_bigint::{
-    Limb, NonZero, Odd, Random, RandomBits, RandomMod, Reciprocal, Uint, U128, U1536, U2048, U256,
-    U4096,
+    Limb, NonZero, Odd, Random, RandomBits, RandomMod, Reciprocal, Uint, U1024, U128, U1536, U2048,
+    U256, U4096,
 };
 use rand_chacha::ChaCha8Rng;
 use rand_core::{OsRng, SeedableRng};
@@ -415,6 +415,18 @@ fn bench_sqrt(c: &mut Criterion) {
     });
 }
 
+fn bench_pxgcd(c: &mut Criterion) {
+    let mut group = c.benchmark_group("partial_xgcd");
+
+    group.bench_function("partial_xgcd, U1024", |b| {
+        b.iter_batched(
+            || (U1024::random(&mut OsRng), U1024::random(&mut OsRng)),
+            |(x, y)| x.partial_xgcd(&y, 512),
+            BatchSize::SmallInput,
+        )
+    });
+}
+
 criterion_group!(
     benches,
     bench_random_bits,
@@ -424,7 +436,8 @@ criterion_group!(
     bench_shl,
     bench_shr,
     bench_inv_mod,
-    bench_sqrt
+    bench_sqrt,
+    bench_pxgcd
 );
 
 criterion_main!(benches);
