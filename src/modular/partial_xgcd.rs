@@ -10,8 +10,6 @@ pub struct PxgcdMatrix<const LIMBS: usize> {
     pattern: ConstChoice,
 }
 
-type Vector<const LIMBS: usize> = (Uint<LIMBS>, Uint<LIMBS>);
-
 impl<const LIMBS: usize> PxgcdMatrix<LIMBS> {
     /// The unit / identity matrix
     const UNIT: Self = Self {
@@ -22,39 +20,8 @@ impl<const LIMBS: usize> PxgcdMatrix<LIMBS> {
         pattern: ConstChoice::TRUE,
     };
 
-    /// Construct a [PxgcdMatrix].
-    const fn new(
-        m00: Uint<LIMBS>,
-        m01: Uint<LIMBS>,
-        m10: Uint<LIMBS>,
-        m11: Uint<LIMBS>,
-        pattern: ConstChoice,
-    ) -> Self {
-        Self {
-            m00,
-            m01,
-            m10,
-            m11,
-            pattern,
-        }
-    }
-
-    /// Wrapping apply this matrix to `vector` and return the result.
-    fn wrapping_apply(&self, vector: Vector<LIMBS>) -> Vector<LIMBS> {
-        let (a, b) = vector;
-        (
-            self.m00
-                .wrapping_mul(&a)
-                .wrapping_sub(&self.m01.wrapping_mul(&b))
-                .wrapping_neg_if(self.pattern.not()),
-            self.m10
-                .wrapping_mul(&a)
-                .wrapping_sub(&self.m11.wrapping_mul(&b))
-                .wrapping_neg_if(self.pattern),
-        )
-    }
-
     /// Swap the rows of this matrix if `swap` is truthy. Otherwise, do nothing.
+    #[inline]
     fn swap_rows_if(&mut self, swap: ConstChoice) {
         Uint::conditional_swap(&mut self.m00, &mut self.m10, swap);
         Uint::conditional_swap(&mut self.m01, &mut self.m11, swap);
@@ -152,6 +119,45 @@ impl<const LIMBS: usize> Uint<LIMBS> {
 
 #[cfg(test)]
 mod tests {
+    use crate::modular::partial_xgcd::PxgcdMatrix;
+    use crate::{ConstChoice, Uint};
+
+    type Vector<const LIMBS: usize> = (Uint<LIMBS>, Uint<LIMBS>);
+
+    impl<const LIMBS: usize> PxgcdMatrix<LIMBS> {
+        /// Construct a [PxgcdMatrix].
+        const fn new(
+            m00: Uint<LIMBS>,
+            m01: Uint<LIMBS>,
+            m10: Uint<LIMBS>,
+            m11: Uint<LIMBS>,
+            pattern: ConstChoice,
+        ) -> Self {
+            Self {
+                m00,
+                m01,
+                m10,
+                m11,
+                pattern,
+            }
+        }
+
+        /// Wrapping apply this matrix to `vector` and return the result.
+        fn wrapping_apply(&self, vector: Vector<LIMBS>) -> Vector<LIMBS> {
+            let (a, b) = vector;
+            (
+                self.m00
+                    .wrapping_mul(&a)
+                    .wrapping_sub(&self.m01.wrapping_mul(&b))
+                    .wrapping_neg_if(self.pattern.not()),
+                self.m10
+                    .wrapping_mul(&a)
+                    .wrapping_sub(&self.m11.wrapping_mul(&b))
+                    .wrapping_neg_if(self.pattern),
+            )
+        }
+    }
+
     mod test_pxgcd_matrix {
         use crate::modular::partial_xgcd::PxgcdMatrix;
         use crate::{ConstChoice, Uint, U64};
