@@ -61,23 +61,21 @@ impl<const LIMBS: usize> PxgcdMatrix<LIMBS> {
         self.pattern = self.pattern.xor(swap);
     }
 
-    /// Left-multiply this matrix with the upper triangular matrix that has `-2^k` as its top-right
-    /// element whenever `mul` is truthy. Otherwise, do nothing. In other words, compute
+    /// Subtract the bottom row of this matrix `2^k` times from the top row if `sub` is set.
+    /// Otherwise, do nothing.
+    ///
+    /// In matrix notation, execute
     /// ```text
     /// [ 1 -2^k ] [ m00 m01 ]
     /// [ 0    1 ] [ m10 m11 ]
     /// ```
     /// if `mul.is_true()`, and nothing otherwise.
     #[inline]
-    fn conditional_left_mul_by_upper_triangular_matrix_with_negative_2k(
-        &mut self,
-        k: u32,
-        mul: ConstChoice,
-    ) {
-        // Note: these are additions (and not subtractions like the matrix representation suggests)
-        // because of how the sign-information of this matrix is stored in `pattern`.
-        self.m00 = Uint::select(&self.m00, &self.m00.wrapping_add(&self.m10.shl(k)), mul);
-        self.m01 = Uint::select(&self.m01, &self.m01.wrapping_add(&self.m11.shl(k)), mul);
+    fn conditional_subtract_bottom_row_2k_times_from_top_row(&mut self, k: u32, sub: ConstChoice) {
+        // Note: these are additions (and not subtractions like the function name suggests) because
+        // of how the sign-information of this matrix is stored in `pattern`.
+        self.m00 = Uint::select(&self.m00, &self.m00.wrapping_add(&self.m10.shl(k)), sub);
+        self.m01 = Uint::select(&self.m01, &self.m01.wrapping_add(&self.m11.shl(k)), sub);
     }
 }
 
@@ -132,10 +130,7 @@ impl<const LIMBS: usize> Uint<LIMBS> {
 
             // Subtract b*2^k from a
             a = Uint::select(&a, &a.wrapping_sub(&b_2k), loop_is_active);
-            matrix.conditional_left_mul_by_upper_triangular_matrix_with_negative_2k(
-                k,
-                loop_is_active,
-            );
+            matrix.conditional_subtract_bottom_row_2k_times_from_top_row(k, loop_is_active);
             a_bits = a.bits();
 
             // Make sure a >= b
@@ -189,16 +184,10 @@ mod tests {
         #[test]
         fn test_conditional_upper_triangular_left_mul() {
             let mut matrix = MATRIX;
-            matrix.conditional_left_mul_by_upper_triangular_matrix_with_negative_2k(
-                1,
-                ConstChoice::FALSE,
-            );
+            matrix.conditional_subtract_bottom_row_2k_times_from_top_row(1, ConstChoice::FALSE);
             assert_eq!(matrix, MATRIX);
 
-            matrix.conditional_left_mul_by_upper_triangular_matrix_with_negative_2k(
-                1,
-                ConstChoice::TRUE,
-            );
+            matrix.conditional_subtract_bottom_row_2k_times_from_top_row(1, ConstChoice::TRUE);
             assert_eq!(
                 matrix,
                 PxgcdMatrix::new(
