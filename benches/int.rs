@@ -1,7 +1,6 @@
 use std::ops::Div;
 
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
-use num_traits::WrappingSub;
 use rand_core::OsRng;
 
 use crypto_bigint::{
