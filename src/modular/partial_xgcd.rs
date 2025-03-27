@@ -53,7 +53,7 @@ impl<const LIMBS: usize> Uint<LIMBS> {
         rhs: &Uint<LIMBS>,
         threshold: u32,
     ) -> (Self, Self, PxgcdMatrix<LIMBS>) {
-        self.bounded_partial_xgcd(&rhs, threshold, Uint::<LIMBS>::BITS)
+        self.bounded_partial_xgcd(rhs, threshold, Uint::<LIMBS>::BITS)
     }
 
     /// Extended GCD-reduce `self` and `rhs` until both can be represented using `threshold` bits.
