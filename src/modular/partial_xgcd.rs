@@ -98,7 +98,10 @@ impl<const LIMBS: usize> Uint<LIMBS> {
         a_lt_b.conditional_swap_u32(&mut a_bits, &mut b_bits);
         matrix.swap_rows_if(a_lt_b);
 
-        let iterations = 2 * (Uint::<LIMBS>::BITS - threshold) - 1;
+        let iterations = Uint::<LIMBS>::BITS
+            .saturating_sub(threshold)
+            .saturating_mul(2)
+            .saturating_sub(1);
         let mut i = 0;
         while i < iterations {
             i += 1;
@@ -282,6 +285,18 @@ mod tests {
             let threshold = 512;
 
             let (a, b) = (U1024::MAX, U1024::ONE.shl(750));
+            let (partial_a, partial_b, matrix) = a.partial_xgcd(&b, threshold);
+
+            assert!(partial_a.bits() <= threshold);
+            assert!(partial_b.bits() <= threshold);
+
+            assert_eq!(matrix.wrapping_apply((a, b)), (partial_a, partial_b));
+        }
+
+        #[test]
+        fn text_partial_xgcd_no_threshold_underflow() {
+            let threshold = 700;
+            let (a, b) = (U64::ONE, U64::ZERO);
             let (partial_a, partial_b, matrix) = a.partial_xgcd(&b, threshold);
 
             assert!(partial_a.bits() <= threshold);
