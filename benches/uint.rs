@@ -425,6 +425,14 @@ fn bench_pxgcd(c: &mut Criterion) {
             BatchSize::SmallInput,
         )
     });
+
+    group.bench_function("bounded_partial_xgcd, U1024, 930 bits", |b| {
+        b.iter_batched(
+            || (U1024::random(&mut OsRng), U1024::random(&mut OsRng)),
+            |(x, y)| x.bounded_partial_xgcd(&y, 465, 930),
+            BatchSize::SmallInput,
+        )
+    });
 }
 
 criterion_group!(
