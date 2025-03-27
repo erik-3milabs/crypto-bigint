@@ -110,6 +110,8 @@ impl<const LIMBS: usize> Uint<LIMBS> {
         a_lt_b.conditional_swap_u32(&mut a_bits, &mut b_bits);
         matrix.swap_rows_if(a_lt_b);
 
+        // TODO: we think we can prove that 7/4 * (upperbound - threshold) + C iterations will
+        //  suffice (as long as the gap between upperbound and threshold is large enough?)
         let iterations = bits_upper_bound
             .saturating_sub(threshold)
             .saturating_mul(2)
