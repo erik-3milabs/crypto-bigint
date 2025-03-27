@@ -177,6 +177,7 @@ pub use crate::{
     int::*,
     limb::{Limb, WideWord, Word},
     modular::bingcd::{NonZeroUintBinxgcdOutput, OddUintBinxgcdOutput, UintBinxgcdOutput},
+    modular::partial_xgcd::PxgcdMatrix,
     non_zero::NonZero,
     odd::Odd,
     traits::*,
