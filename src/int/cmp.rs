@@ -15,6 +15,12 @@ impl<const LIMBS: usize> Int<LIMBS> {
         Self(Uint::select(&a.0, &b.0, c))
     }
 
+    /// Swap `a` and `b` if `c` is truthy, otherwise, do nothing.
+    #[inline]
+    pub(crate) fn conditional_swap(a: &mut Self, b: &mut Self, c: ConstChoice) {
+        Uint::conditional_swap(&mut a.0, &mut b.0, c);
+    }
+
     /// Returns the truthy value if `self`!=0 or the falsy value otherwise.
     #[inline]
     pub(crate) const fn is_nonzero(&self) -> ConstChoice {
@@ -130,6 +136,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::bool_assert_comparison)]
     fn test_gt() {
         // x > y
         assert!(I128::MAX > I128::ONE);
@@ -147,6 +154,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::bool_assert_comparison)]
     fn test_lt() {
         // x < y
         assert!(I128::ONE < I128::MAX);

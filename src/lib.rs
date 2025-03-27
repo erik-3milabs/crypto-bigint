@@ -176,6 +176,7 @@ pub use crate::{
     const_choice::{ConstChoice, ConstCtOption},
     int::*,
     limb::{Limb, WideWord, Word},
+    modular::bingcd::{NonZeroUintBinxgcdOutput, OddUintBinxgcdOutput, UintBinxgcdOutput},
     non_zero::NonZero,
     odd::Odd,
     traits::*,

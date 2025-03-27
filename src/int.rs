@@ -15,6 +15,7 @@ use crate::{
 mod macros;
 
 mod add;
+mod bingcd;
 mod bit_and;
 mod bit_not;
 mod bit_or;
@@ -34,6 +35,8 @@ mod shl;
 mod shr;
 mod sign;
 mod sub;
+
+pub use bingcd::{IntBinxgcdOutput, NonZeroIntBinxgcdOutput, OddIntBinxgcdOutput};
 
 #[cfg(feature = "rand_core")]
 mod rand;
@@ -141,7 +144,7 @@ impl<const LIMBS: usize> Int<LIMBS> {
     ///
     /// Returns some if the original value is odd, and false otherwise.
     pub const fn to_odd(self) -> ConstCtOption<Odd<Self>> {
-        ConstCtOption::new(Odd(self), self.is_odd())
+        ConstCtOption::new(Odd(self), self.0.is_odd())
     }
 
     /// Interpret the data in this type as a [`Uint`] instead.
