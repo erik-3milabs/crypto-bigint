@@ -248,6 +248,23 @@ mod tests {
         }
 
         #[test]
+        fn text_partial_xgcd_zero() {
+            let threshold = 6;
+
+            let (a, b) = (U64::from(554u64), U64::ZERO);
+            let (partial_a, partial_b, matrix) = a.partial_xgcd(&b, threshold);
+            assert_eq!(partial_a, U64::from(554u64));
+            assert_eq!(partial_b, U64::ZERO);
+            assert_eq!(matrix.wrapping_apply((a, b)), (partial_a, partial_b));
+
+            let (partial_a, partial_b, matrix) = b.partial_xgcd(&a, threshold);
+
+            assert_eq!(partial_a, U64::ZERO);
+            assert_eq!(partial_b, U64::from(554u64));
+            assert_eq!(matrix.wrapping_apply((b, a)), (partial_a, partial_b));
+        }
+
+        #[test]
         fn text_partial_xgcd() {
             let threshold = 6;
 
