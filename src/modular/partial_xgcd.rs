@@ -1,6 +1,20 @@
 use crate::{ConstChoice, Uint};
 
 /// The matrix representation used in the partial extended gcd algorithm.
+///
+/// Instead of using [Int]s to represent the internal state, this matrix uses [Uint]s and a
+/// [ConstChoice] indicating the pattern of the signs in the matrix. This is because during the
+/// execution of the partial extended gcd algorithm, the signs of the elements in the matrix
+/// always adhere to one of the following two patterns:
+/// ```text
+///   true            false
+/// [ + - ]          [ - + ]
+/// [ - + ]    or    [ + - ]
+/// ```
+/// The `pattern` attribute indicates which of the two patterns is active.
+///
+/// Secondly, the determinant of this matrix is always `+/- 1`. The `pattern` attribute moreover
+/// indicates whether the sign of this determinant is `1` (`true`) or `-1` (`false`).
 #[derive(Debug, PartialEq)]
 pub struct PxgcdMatrix<const LIMBS: usize> {
     m00: Uint<LIMBS>,
@@ -20,7 +34,28 @@ impl<const LIMBS: usize> PxgcdMatrix<LIMBS> {
         pattern: ConstChoice::TRUE,
     };
 
+    /// Construct the adjugate of this matrix.
+    ///
+    /// Returns the absolute values of the adjugate matrix elements, as well as a `ConstChoice`
+    /// indicating the signs of the elements: all four values are negative whenever it is `truthy`.
+    ///
+    /// Recall that
+    /// ```text
+    ///     ( [ m00 m01 ] )   [  m11 -m01 ]
+    /// Adj ( [ m10 m11 ] ) = [ -m10  m00 ]
+    /// ```
+    pub const fn adjugate(
+        &self,
+    ) -> (
+        (Uint<LIMBS>, Uint<LIMBS>, Uint<LIMBS>, Uint<LIMBS>),
+        ConstChoice,
+    ) {
+        ((self.m11, self.m01, self.m10, self.m00), self.pattern.not())
+    }
+
     /// Swap the rows of this matrix if `swap` is truthy. Otherwise, do nothing.
+    ///
+    /// Note: this operation preserves the fact that `det(self) = +/-1`.
     #[inline]
     fn swap_rows_if(&mut self, swap: ConstChoice) {
         Uint::conditional_swap(&mut self.m00, &mut self.m10, swap);
@@ -37,6 +72,8 @@ impl<const LIMBS: usize> PxgcdMatrix<LIMBS> {
     /// [ 0    1 ] [ m10 m11 ]
     /// ```
     /// if `mul.is_true()`, and nothing otherwise.
+    ///
+    /// Note: this operation preserves the fact that `det(self) = +/-1`.
     #[inline]
     fn conditional_subtract_bottom_row_2k_times_from_top_row(&mut self, k: u32, sub: ConstChoice) {
         // Note: these are additions (and not subtractions like the function name suggests) because
@@ -221,6 +258,35 @@ mod tests {
             let (a, b) = matrix.wrapping_apply((a, b));
             assert_eq!(a, U64::from(318u64));
             assert_eq!(b, U64::from(262u64));
+        }
+
+        #[test]
+        fn test_adjugate() {
+            let mut x = MATRIX;
+            let (matrix, sign) = x.adjugate();
+            assert_eq!(
+                matrix,
+                (
+                    Uint::ZERO,
+                    Uint::from_u64(2u64),
+                    Uint::ONE,
+                    Uint::from_u64(3u64)
+                ),
+            );
+            assert_eq!(sign, ConstChoice::FALSE);
+
+            x.swap_rows_if(ConstChoice::TRUE);
+            let (matrix, sign) = x.adjugate();
+            assert_eq!(
+                matrix,
+                (
+                    Uint::from_u64(2u64),
+                    Uint::ZERO,
+                    Uint::from_u64(3u64),
+                    Uint::ONE,
+                )
+            );
+            assert_eq!(sign, ConstChoice::TRUE);
         }
     }
 
