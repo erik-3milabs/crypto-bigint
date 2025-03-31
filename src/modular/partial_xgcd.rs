@@ -2,7 +2,7 @@ use crate::{ConstChoice, Uint};
 
 /// The matrix representation used in the partial extended gcd algorithm.
 ///
-/// Instead of using [Int]s to represent the internal state, this matrix uses [Uint]s and a
+/// Instead of using Ints to represent the internal state, this matrix uses [Uint]s and a
 /// [ConstChoice] indicating the pattern of the signs in the matrix. This is because during the
 /// execution of the partial extended gcd algorithm, the signs of the elements in the matrix
 /// always adhere to one of the following two patterns:

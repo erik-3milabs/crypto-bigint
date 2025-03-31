@@ -56,6 +56,17 @@ impl<const LIMBS: usize> Int<LIMBS> {
     }
 
     /// Checked multiplication of self with an `Uint<RHS_LIMBS>`, where the result is to be stored
+    /// in an `Int<LIMBS>`.
+    pub fn checked_mul_uint<const RHS_LIMBS: usize>(
+        &self,
+        rhs: &Uint<RHS_LIMBS>,
+    ) -> CtOption<Int<LIMBS>> {
+        let (lo, hi, is_negative) = self.split_mul_uint(rhs);
+        let val = Int::new_from_abs_sign(lo, is_negative);
+        CtOption::from(val).and_then(|int| CtOption::new(int, hi.is_zero()))
+    }
+
+    /// Checked multiplication of self with an `Uint<RHS_LIMBS>`, where the result is to be stored
     /// in an `Int<RHS_LIMBS>`.
     pub fn checked_mul_uint_right<const RHS_LIMBS: usize>(
         &self,
