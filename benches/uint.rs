@@ -1,451 +1,915 @@
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
 use crypto_bigint::{
     Limb, NonZero, Odd, Random, RandomBits, RandomMod, Reciprocal, Uint, U1024, U128, U1536, U2048,
-    U256, U4096,
+    U256, U4096, U512,
 };
-use rand_chacha::ChaCha8Rng;
-use rand_core::{OsRng, SeedableRng};
+use rand_core::OsRng;
 
-fn make_rng() -> ChaCha8Rng {
-    ChaCha8Rng::seed_from_u64(123456789)
-}
+// fn make_rng() -> ChaCha8Rng {
+//     ChaCha8Rng::seed_from_u64(123456789)
+// }
 
-fn bench_random_bits(c: &mut Criterion) {
-    let mut group = c.benchmark_group("random_bits");
+// fn bench_random_bits(c: &mut Criterion) {
+//     let mut group = c.benchmark_group("random_bits");
+//
+//     let mut rng = make_rng();
+//     group.bench_function("random_bits, U256, full", |b| {
+//         b.iter(|| black_box(U256::random_bits(&mut rng, U256::BITS)));
+//     });
+//
+//     group.bench_function("random_bits, U256, bounded", |b| {
+//         b.iter(|| black_box(U256::random_bits(&mut rng, 219)));
+//     });
+//
+//     group.bench_function("random_bits, U2048, full", |b| {
+//         b.iter(|| black_box(U2048::random_bits(&mut rng, U2048::BITS)));
+//     });
+//
+//     group.bench_function("random_bits, U2048, bounded", |b| {
+//         b.iter(|| black_box(U2048::random_bits(&mut rng, 1947)));
+//     });
+// }
+//
+// fn bench_mul(c: &mut Criterion) {
+//     let mut group = c.benchmark_group("wrapping ops");
+//
+//     group.bench_function("split_mul, U256xU256", |b| {
+//         b.iter_batched(
+//             || (U256::random(&mut OsRng), U256::random(&mut OsRng)),
+//             |(x, y)| black_box(x.split_mul(&y)),
+//             BatchSize::SmallInput,
+//         )
+//     });
+//
+//     group.bench_function("split_mul, U1536xU1536", |b| {
+//         b.iter_batched(
+//             || (U1536::random(&mut OsRng), U1536::random(&mut OsRng)),
+//             |(x, y)| black_box(x.split_mul(&y)),
+//             BatchSize::SmallInput,
+//         )
+//     });
+//
+//     group.bench_function("split_mul, U4096xU4096", |b| {
+//         b.iter_batched(
+//             || (U4096::random(&mut OsRng), U4096::random(&mut OsRng)),
+//             |(x, y)| black_box(x.split_mul(&y)),
+//             BatchSize::SmallInput,
+//         )
+//     });
+//
+//     group.bench_function("square_wide, U256", |b| {
+//         b.iter_batched(
+//             || U256::random(&mut OsRng),
+//             |x| black_box(x.square_wide()),
+//             BatchSize::SmallInput,
+//         )
+//     });
+//
+//     group.bench_function("square_wide, U4096", |b| {
+//         b.iter_batched(
+//             || U4096::random(&mut OsRng),
+//             |x| black_box(x.square_wide()),
+//             BatchSize::SmallInput,
+//         )
+//     });
+//
+//     group.bench_function("mul_mod, U256", |b| {
+//         b.iter_batched(
+//             || {
+//                 let m = Odd::<U256>::random(&mut OsRng);
+//                 let x = U256::random_mod(&mut OsRng, m.as_nz_ref());
+//                 (m.to_nz().unwrap(), x)
+//             },
+//             |(m, x)| black_box(x).mul_mod(black_box(&x), &m),
+//             BatchSize::SmallInput,
+//         )
+//     });
+//
+//     group.bench_function("mul_mod_vartime, U256", |b| {
+//         b.iter_batched(
+//             || {
+//                 let m = Odd::<U256>::random(&mut OsRng);
+//                 let x = U256::random_mod(&mut OsRng, m.as_nz_ref());
+//                 (m.to_nz().unwrap(), x)
+//             },
+//             |(m, x)| black_box(x).mul_mod_vartime(black_box(&x), &m),
+//             BatchSize::SmallInput,
+//         )
+//     });
+//
+//     group.bench_function("mul_mod_special, U256", |b| {
+//         b.iter_batched(
+//             || {
+//                 let m = Limb::random(&mut OsRng);
+//                 let x = U256::random(&mut OsRng);
+//                 (m, x)
+//             },
+//             |(m, x)| black_box(x).mul_mod_special(black_box(&x), m),
+//             BatchSize::SmallInput,
+//         )
+//     });
+// }
+//
+// fn bench_division(c: &mut Criterion) {
+//     let mut group = c.benchmark_group("wrapping ops");
+//
+//     group.bench_function("div/rem, U256/U128, full size", |b| {
+//         b.iter_batched(
+//             || {
+//                 let x = U256::random(&mut OsRng);
+//                 let y_half = U128::random(&mut OsRng);
+//                 let y: U256 = (y_half, U128::ZERO).into();
+//                 (x, NonZero::new(y).unwrap())
+//             },
+//             |(x, y)| black_box(x.div_rem(&y)),
+//             BatchSize::SmallInput,
+//         )
+//     });
+//
+//     group.bench_function("div/rem_vartime, U256/U128, full size", |b| {
+//         b.iter_batched(
+//             || {
+//                 let x = U256::random(&mut OsRng);
+//                 let y: U256 = (U128::MAX, U128::ZERO).into();
+//                 (x, NonZero::new(y).unwrap())
+//             },
+//             |(x, y)| black_box(x.div_rem_vartime(&y)),
+//             BatchSize::SmallInput,
+//         )
+//     });
+//
+//     group.bench_function("div/rem_full_vartime, U256/U128, full size", |b| {
+//         b.iter_batched(
+//             || {
+//                 let x = U256::random(&mut OsRng);
+//                 let y: U256 = (U128::MAX, U128::ZERO).into();
+//                 (x, NonZero::new(y).unwrap())
+//             },
+//             |(x, y)| black_box(x.div_rem_full_vartime(&y)),
+//             BatchSize::SmallInput,
+//         )
+//     });
+//
+//     group.bench_function("rem, U256/U128, full size", |b| {
+//         b.iter_batched(
+//             || {
+//                 let x = U256::random(&mut OsRng);
+//                 let y_half = U128::random(&mut OsRng);
+//                 let y: U256 = (y_half, U128::ZERO).into();
+//                 (x, NonZero::new(y).unwrap())
+//             },
+//             |(x, y)| black_box(x.rem(&y)),
+//             BatchSize::SmallInput,
+//         )
+//     });
+//
+//     group.bench_function("rem_vartime, U256/U128, full size", |b| {
+//         b.iter_batched(
+//             || {
+//                 let x = U256::random(&mut OsRng);
+//                 let y: U256 = (U128::MAX, U128::ZERO).into();
+//                 (x, NonZero::new(y).unwrap())
+//             },
+//             |(x, y)| black_box(x.rem_vartime(&y)),
+//             BatchSize::SmallInput,
+//         )
+//     });
+//
+//     group.bench_function("rem_wide_vartime, U256", |b| {
+//         b.iter_batched(
+//             || {
+//                 let (x_lo, x_hi) = (U256::random(&mut OsRng), U256::random(&mut OsRng));
+//                 let y: U256 = (U128::MAX, U128::ZERO).into();
+//                 (x_lo, x_hi, NonZero::new(y).unwrap())
+//             },
+//             |(x_lo, x_hi, y)| black_box(Uint::rem_wide_vartime((x_lo, x_hi), &y)),
+//             BatchSize::SmallInput,
+//         )
+//     });
+//
+//     group.bench_function("div/rem, U256/Limb, full size", |b| {
+//         b.iter_batched(
+//             || {
+//                 let x = U256::random(&mut OsRng);
+//                 let y_small = Limb::random(&mut OsRng);
+//                 let y = U256::from_word(y_small.0);
+//                 (x, NonZero::new(y).unwrap())
+//             },
+//             |(x, y)| black_box(x.div_rem(&y)),
+//             BatchSize::SmallInput,
+//         )
+//     });
+//
+//     group.bench_function("div/rem, U256/Limb, single limb", |b| {
+//         b.iter_batched(
+//             || {
+//                 let x = U256::random(&mut OsRng);
+//                 let y = Limb::random(&mut OsRng);
+//                 (x, NonZero::new(y).unwrap())
+//             },
+//             |(x, y)| black_box(x.div_rem_limb(y)),
+//             BatchSize::SmallInput,
+//         )
+//     });
+//
+//     group.bench_function("div/rem, U256/Limb, single limb with reciprocal", |b| {
+//         b.iter_batched(
+//             || {
+//                 let x = U256::random(&mut OsRng);
+//                 let mut y = Limb::random(&mut OsRng);
+//                 if y == Limb::ZERO {
+//                     y = Limb::ONE;
+//                 }
+//                 let r = Reciprocal::new(NonZero::new(y).unwrap());
+//                 (x, r)
+//             },
+//             |(x, r)| black_box(x.div_rem_limb_with_reciprocal(&r)),
+//             BatchSize::SmallInput,
+//         )
+//     });
+//
+//     group.finish();
+// }
+//
+// fn bench_gcd(c: &mut Criterion) {
+//     let mut group = c.benchmark_group("greatest common divisor");
+//
+//     group.bench_function("gcd, U256", |b| {
+//         b.iter_batched(
+//             || {
+//                 let f = U256::random(&mut OsRng);
+//                 let g = U256::random(&mut OsRng);
+//                 (f, g)
+//             },
+//             |(f, g)| black_box(f.gcd(&g)),
+//             BatchSize::SmallInput,
+//         )
+//     });
+//
+//     group.bench_function("gcd_vartime, U256", |b| {
+//         b.iter_batched(
+//             || {
+//                 let f = Odd::<U256>::random(&mut OsRng);
+//                 let g = U256::random(&mut OsRng);
+//                 (f, g)
+//             },
+//             |(f, g)| black_box(f.gcd_vartime(&g)),
+//             BatchSize::SmallInput,
+//         )
+//     });
+//
+//     group.finish();
+// }
+//
+// fn bench_shl(c: &mut Criterion) {
+//     let mut group = c.benchmark_group("left shift");
+//
+//     group.bench_function("shl_vartime, small, U2048", |b| {
+//         b.iter_batched(
+//             || U2048::ONE,
+//             |x| x.overflowing_shl_vartime(10),
+//             BatchSize::SmallInput,
+//         )
+//     });
+//
+//     group.bench_function("shl_vartime, large, U2048", |b| {
+//         b.iter_batched(
+//             || U2048::ONE,
+//             |x| black_box(x.overflowing_shl_vartime(1024 + 10)),
+//             BatchSize::SmallInput,
+//         )
+//     });
+//
+//     group.bench_function("shl_vartime_wide, large, U2048", |b| {
+//         b.iter_batched(
+//             || (U2048::ONE, U2048::ONE),
+//             |x| Uint::overflowing_shl_vartime_wide(x, 1024 + 10),
+//             BatchSize::SmallInput,
+//         )
+//     });
+//
+//     group.bench_function("shl, U2048", |b| {
+//         b.iter_batched(
+//             || U2048::ONE,
+//             |x| x.overflowing_shl(1024 + 10),
+//             BatchSize::SmallInput,
+//         )
+//     });
+//
+//     group.finish();
+// }
+//
+// fn bench_shr(c: &mut Criterion) {
+//     let mut group = c.benchmark_group("right shift");
+//
+//     group.bench_function("shr_vartime, small, U2048", |b| {
+//         b.iter_batched(
+//             || U2048::ONE,
+//             |x| x.overflowing_shr_vartime(10),
+//             BatchSize::SmallInput,
+//         )
+//     });
+//
+//     group.bench_function("shr_vartime, large, U2048", |b| {
+//         b.iter_batched(
+//             || U2048::ONE,
+//             |x| x.overflowing_shr_vartime(1024 + 10),
+//             BatchSize::SmallInput,
+//         )
+//     });
+//
+//     group.bench_function("shr_vartime_wide, large, U2048", |b| {
+//         b.iter_batched(
+//             || (U2048::ONE, U2048::ONE),
+//             |x| Uint::overflowing_shr_vartime_wide(x, 1024 + 10),
+//             BatchSize::SmallInput,
+//         )
+//     });
+//
+//     group.bench_function("shr, U2048", |b| {
+//         b.iter_batched(
+//             || U2048::ONE,
+//             |x| x.overflowing_shr(1024 + 10),
+//             BatchSize::SmallInput,
+//         )
+//     });
+//
+//     group.finish();
+// }
+//
+// fn bench_inv_mod(c: &mut Criterion) {
+//     let mut group = c.benchmark_group("modular ops");
+//
+//     group.bench_function("inv_odd_mod, U256", |b| {
+//         b.iter_batched(
+//             || {
+//                 let m = Odd::<U256>::random(&mut OsRng);
+//                 loop {
+//                     let x = U256::random(&mut OsRng);
+//                     let inv_x = x.inv_odd_mod(&m);
+//                     if inv_x.is_some().into() {
+//                         break (x, m);
+//                     }
+//                 }
+//             },
+//             |(x, m)| black_box(x.inv_odd_mod(&m)),
+//             BatchSize::SmallInput,
+//         )
+//     });
+//
+//     group.bench_function("inv_mod, U256, odd modulus", |b| {
+//         b.iter_batched(
+//             || {
+//                 let m = Odd::<U256>::random(&mut OsRng);
+//                 loop {
+//                     let x = U256::random(&mut OsRng);
+//                     let inv_x = x.inv_odd_mod(&m);
+//                     if inv_x.is_some().into() {
+//                         break (x, m);
+//                     }
+//                 }
+//             },
+//             |(x, m)| black_box(x.inv_mod(&m)),
+//             BatchSize::SmallInput,
+//         )
+//     });
+//
+//     group.bench_function("inv_mod, U256", |b| {
+//         b.iter_batched(
+//             || {
+//                 let m = U256::random(&mut OsRng);
+//                 loop {
+//                     let x = U256::random(&mut OsRng);
+//                     let inv_x = x.inv_mod(&m);
+//                     if inv_x.is_some().into() {
+//                         break (x, m);
+//                     }
+//                 }
+//             },
+//             |(x, m)| black_box(x.inv_mod(&m)),
+//             BatchSize::SmallInput,
+//         )
+//     });
+//
+//     group.finish();
+// }
+//
+// fn bench_sqrt(c: &mut Criterion) {
+//     let mut group = c.benchmark_group("sqrt");
+//
+//     group.bench_function("sqrt, U256", |b| {
+//         b.iter_batched(
+//             || U256::random(&mut OsRng),
+//             |x| x.sqrt(),
+//             BatchSize::SmallInput,
+//         )
+//     });
+//
+//     group.bench_function("sqrt_vartime, U256", |b| {
+//         b.iter_batched(
+//             || U256::random(&mut OsRng),
+//             |x| x.sqrt_vartime(),
+//             BatchSize::SmallInput,
+//         )
+//     });
+// }
+//
+// fn bench_pxgcd(c: &mut Criterion) {
+//     let mut group = c.benchmark_group("partial_xgcd");
+//
+//     group.bench_function("partial_xgcd, U1024", |b| {
+//         b.iter_batched(
+//             || (U1024::random(&mut OsRng), U1024::random(&mut OsRng)),
+//             |(x, y)| x.partial_xgcd(&y, 512),
+//             BatchSize::SmallInput,
+//         )
+//     });
+//
+//     group.bench_function("bounded_partial_xgcd, U1024, 930 bits", |b| {
+//         b.iter_batched(
+//             || (U1024::random(&mut OsRng), U1024::random(&mut OsRng)),
+//             |(x, y)| x.bounded_partial_xgcd(&y, 465, 930),
+//             BatchSize::SmallInput,
+//         )
+//     });
+// }
 
-    let mut rng = make_rng();
-    group.bench_function("random_bits, U256, full", |b| {
-        b.iter(|| black_box(U256::random_bits(&mut rng, U256::BITS)));
-    });
-
-    group.bench_function("random_bits, U256, bounded", |b| {
-        b.iter(|| black_box(U256::random_bits(&mut rng, 219)));
-    });
-
-    group.bench_function("random_bits, U2048, full", |b| {
-        b.iter(|| black_box(U2048::random_bits(&mut rng, U2048::BITS)));
-    });
-
-    group.bench_function("random_bits, U2048, bounded", |b| {
-        b.iter(|| black_box(U2048::random_bits(&mut rng, 1947)));
-    });
-}
-
-fn bench_mul(c: &mut Criterion) {
-    let mut group = c.benchmark_group("wrapping ops");
-
-    group.bench_function("split_mul, U256xU256", |b| {
+fn bench_mul_ct(c: &mut Criterion) {
+    let mut group = c.benchmark_group("mul (ct)");
+    group.bench_function("U512xU256", |b| {
         b.iter_batched(
-            || (U256::random(&mut OsRng), U256::random(&mut OsRng)),
-            |(x, y)| black_box(x.split_mul(&y)),
+            || (U512::random(&mut OsRng), U256::random(&mut OsRng)),
+            |(x, y)| x.split_mul(&y),
             BatchSize::SmallInput,
         )
     });
-
-    group.bench_function("split_mul, U1536xU1536", |b| {
-        b.iter_batched(
-            || (U1536::random(&mut OsRng), U1536::random(&mut OsRng)),
-            |(x, y)| black_box(x.split_mul(&y)),
-            BatchSize::SmallInput,
-        )
-    });
-
-    group.bench_function("split_mul, U4096xU4096", |b| {
-        b.iter_batched(
-            || (U4096::random(&mut OsRng), U4096::random(&mut OsRng)),
-            |(x, y)| black_box(x.split_mul(&y)),
-            BatchSize::SmallInput,
-        )
-    });
-
-    group.bench_function("square_wide, U256", |b| {
-        b.iter_batched(
-            || U256::random(&mut OsRng),
-            |x| black_box(x.square_wide()),
-            BatchSize::SmallInput,
-        )
-    });
-
-    group.bench_function("square_wide, U4096", |b| {
-        b.iter_batched(
-            || U4096::random(&mut OsRng),
-            |x| black_box(x.square_wide()),
-            BatchSize::SmallInput,
-        )
-    });
-
-    group.bench_function("mul_mod, U256", |b| {
+    group.bench_function("U512xU512(U256)", |b| {
         b.iter_batched(
             || {
-                let m = Odd::<U256>::random(&mut OsRng);
-                let x = U256::random_mod(&mut OsRng, m.as_nz_ref());
-                (m.to_nz().unwrap(), x)
+                (
+                    U512::random(&mut OsRng),
+                    U256::random(&mut OsRng).resize::<{ U512::LIMBS }>(),
+                )
             },
-            |(m, x)| black_box(x).mul_mod(black_box(&x), &m),
+            |(x, y)| x.split_mul(&y),
             BatchSize::SmallInput,
         )
     });
-
-    group.bench_function("mul_mod_vartime, U256", |b| {
+    group.bench_function("U512xU512", |b| {
+        b.iter_batched(
+            || (U512::random(&mut OsRng), U512::random(&mut OsRng)),
+            |(x, y)| x.split_mul(&y),
+            BatchSize::SmallInput,
+        )
+    });
+    group.bench_function("U1024xU512", |b| {
+        b.iter_batched(
+            || (U1024::random(&mut OsRng), U512::random(&mut OsRng)),
+            |(x, y)| x.split_mul(&y),
+            BatchSize::SmallInput,
+        )
+    });
+    group.bench_function("U1024xU1024(U512)", |b| {
         b.iter_batched(
             || {
-                let m = Odd::<U256>::random(&mut OsRng);
-                let x = U256::random_mod(&mut OsRng, m.as_nz_ref());
-                (m.to_nz().unwrap(), x)
+                (
+                    U1024::random(&mut OsRng),
+                    U512::random(&mut OsRng).resize::<{ U1024::LIMBS }>(),
+                )
             },
-            |(m, x)| black_box(x).mul_mod_vartime(black_box(&x), &m),
+            |(x, y)| x.split_mul(&y),
             BatchSize::SmallInput,
         )
     });
-
-    group.bench_function("mul_mod_special, U256", |b| {
-        b.iter_batched(
-            || {
-                let m = Limb::random(&mut OsRng);
-                let x = U256::random(&mut OsRng);
-                (m, x)
-            },
-            |(m, x)| black_box(x).mul_mod_special(black_box(&x), m),
-            BatchSize::SmallInput,
-        )
-    });
-}
-
-fn bench_division(c: &mut Criterion) {
-    let mut group = c.benchmark_group("wrapping ops");
-
-    group.bench_function("div/rem, U256/U128, full size", |b| {
-        b.iter_batched(
-            || {
-                let x = U256::random(&mut OsRng);
-                let y_half = U128::random(&mut OsRng);
-                let y: U256 = (y_half, U128::ZERO).into();
-                (x, NonZero::new(y).unwrap())
-            },
-            |(x, y)| black_box(x.div_rem(&y)),
-            BatchSize::SmallInput,
-        )
-    });
-
-    group.bench_function("div/rem_vartime, U256/U128, full size", |b| {
-        b.iter_batched(
-            || {
-                let x = U256::random(&mut OsRng);
-                let y: U256 = (U128::MAX, U128::ZERO).into();
-                (x, NonZero::new(y).unwrap())
-            },
-            |(x, y)| black_box(x.div_rem_vartime(&y)),
-            BatchSize::SmallInput,
-        )
-    });
-
-    group.bench_function("div/rem_full_vartime, U256/U128, full size", |b| {
-        b.iter_batched(
-            || {
-                let x = U256::random(&mut OsRng);
-                let y: U256 = (U128::MAX, U128::ZERO).into();
-                (x, NonZero::new(y).unwrap())
-            },
-            |(x, y)| black_box(x.div_rem_full_vartime(&y)),
-            BatchSize::SmallInput,
-        )
-    });
-
-    group.bench_function("rem, U256/U128, full size", |b| {
-        b.iter_batched(
-            || {
-                let x = U256::random(&mut OsRng);
-                let y_half = U128::random(&mut OsRng);
-                let y: U256 = (y_half, U128::ZERO).into();
-                (x, NonZero::new(y).unwrap())
-            },
-            |(x, y)| black_box(x.rem(&y)),
-            BatchSize::SmallInput,
-        )
-    });
-
-    group.bench_function("rem_vartime, U256/U128, full size", |b| {
-        b.iter_batched(
-            || {
-                let x = U256::random(&mut OsRng);
-                let y: U256 = (U128::MAX, U128::ZERO).into();
-                (x, NonZero::new(y).unwrap())
-            },
-            |(x, y)| black_box(x.rem_vartime(&y)),
-            BatchSize::SmallInput,
-        )
-    });
-
-    group.bench_function("rem_wide_vartime, U256", |b| {
-        b.iter_batched(
-            || {
-                let (x_lo, x_hi) = (U256::random(&mut OsRng), U256::random(&mut OsRng));
-                let y: U256 = (U128::MAX, U128::ZERO).into();
-                (x_lo, x_hi, NonZero::new(y).unwrap())
-            },
-            |(x_lo, x_hi, y)| black_box(Uint::rem_wide_vartime((x_lo, x_hi), &y)),
-            BatchSize::SmallInput,
-        )
-    });
-
-    group.bench_function("div/rem, U256/Limb, full size", |b| {
-        b.iter_batched(
-            || {
-                let x = U256::random(&mut OsRng);
-                let y_small = Limb::random(&mut OsRng);
-                let y = U256::from_word(y_small.0);
-                (x, NonZero::new(y).unwrap())
-            },
-            |(x, y)| black_box(x.div_rem(&y)),
-            BatchSize::SmallInput,
-        )
-    });
-
-    group.bench_function("div/rem, U256/Limb, single limb", |b| {
-        b.iter_batched(
-            || {
-                let x = U256::random(&mut OsRng);
-                let y = Limb::random(&mut OsRng);
-                (x, NonZero::new(y).unwrap())
-            },
-            |(x, y)| black_box(x.div_rem_limb(y)),
-            BatchSize::SmallInput,
-        )
-    });
-
-    group.bench_function("div/rem, U256/Limb, single limb with reciprocal", |b| {
-        b.iter_batched(
-            || {
-                let x = U256::random(&mut OsRng);
-                let mut y = Limb::random(&mut OsRng);
-                if y == Limb::ZERO {
-                    y = Limb::ONE;
-                }
-                let r = Reciprocal::new(NonZero::new(y).unwrap());
-                (x, r)
-            },
-            |(x, r)| black_box(x.div_rem_limb_with_reciprocal(&r)),
-            BatchSize::SmallInput,
-        )
-    });
-
-    group.finish();
-}
-
-fn bench_gcd(c: &mut Criterion) {
-    let mut group = c.benchmark_group("greatest common divisor");
-
-    group.bench_function("gcd, U256", |b| {
-        b.iter_batched(
-            || {
-                let f = U256::random(&mut OsRng);
-                let g = U256::random(&mut OsRng);
-                (f, g)
-            },
-            |(f, g)| black_box(f.gcd(&g)),
-            BatchSize::SmallInput,
-        )
-    });
-
-    group.bench_function("gcd_vartime, U256", |b| {
-        b.iter_batched(
-            || {
-                let f = Odd::<U256>::random(&mut OsRng);
-                let g = U256::random(&mut OsRng);
-                (f, g)
-            },
-            |(f, g)| black_box(f.gcd_vartime(&g)),
-            BatchSize::SmallInput,
-        )
-    });
-
-    group.finish();
-}
-
-fn bench_shl(c: &mut Criterion) {
-    let mut group = c.benchmark_group("left shift");
-
-    group.bench_function("shl_vartime, small, U2048", |b| {
-        b.iter_batched(
-            || U2048::ONE,
-            |x| x.overflowing_shl_vartime(10),
-            BatchSize::SmallInput,
-        )
-    });
-
-    group.bench_function("shl_vartime, large, U2048", |b| {
-        b.iter_batched(
-            || U2048::ONE,
-            |x| black_box(x.overflowing_shl_vartime(1024 + 10)),
-            BatchSize::SmallInput,
-        )
-    });
-
-    group.bench_function("shl_vartime_wide, large, U2048", |b| {
-        b.iter_batched(
-            || (U2048::ONE, U2048::ONE),
-            |x| Uint::overflowing_shl_vartime_wide(x, 1024 + 10),
-            BatchSize::SmallInput,
-        )
-    });
-
-    group.bench_function("shl, U2048", |b| {
-        b.iter_batched(
-            || U2048::ONE,
-            |x| x.overflowing_shl(1024 + 10),
-            BatchSize::SmallInput,
-        )
-    });
-
-    group.finish();
-}
-
-fn bench_shr(c: &mut Criterion) {
-    let mut group = c.benchmark_group("right shift");
-
-    group.bench_function("shr_vartime, small, U2048", |b| {
-        b.iter_batched(
-            || U2048::ONE,
-            |x| x.overflowing_shr_vartime(10),
-            BatchSize::SmallInput,
-        )
-    });
-
-    group.bench_function("shr_vartime, large, U2048", |b| {
-        b.iter_batched(
-            || U2048::ONE,
-            |x| x.overflowing_shr_vartime(1024 + 10),
-            BatchSize::SmallInput,
-        )
-    });
-
-    group.bench_function("shr_vartime_wide, large, U2048", |b| {
-        b.iter_batched(
-            || (U2048::ONE, U2048::ONE),
-            |x| Uint::overflowing_shr_vartime_wide(x, 1024 + 10),
-            BatchSize::SmallInput,
-        )
-    });
-
-    group.bench_function("shr, U2048", |b| {
-        b.iter_batched(
-            || U2048::ONE,
-            |x| x.overflowing_shr(1024 + 10),
-            BatchSize::SmallInput,
-        )
-    });
-
-    group.finish();
-}
-
-fn bench_inv_mod(c: &mut Criterion) {
-    let mut group = c.benchmark_group("modular ops");
-
-    group.bench_function("inv_odd_mod, U256", |b| {
-        b.iter_batched(
-            || {
-                let m = Odd::<U256>::random(&mut OsRng);
-                loop {
-                    let x = U256::random(&mut OsRng);
-                    let inv_x = x.inv_odd_mod(&m);
-                    if inv_x.is_some().into() {
-                        break (x, m);
-                    }
-                }
-            },
-            |(x, m)| black_box(x.inv_odd_mod(&m)),
-            BatchSize::SmallInput,
-        )
-    });
-
-    group.bench_function("inv_mod, U256, odd modulus", |b| {
-        b.iter_batched(
-            || {
-                let m = Odd::<U256>::random(&mut OsRng);
-                loop {
-                    let x = U256::random(&mut OsRng);
-                    let inv_x = x.inv_odd_mod(&m);
-                    if inv_x.is_some().into() {
-                        break (x, m);
-                    }
-                }
-            },
-            |(x, m)| black_box(x.inv_mod(&m)),
-            BatchSize::SmallInput,
-        )
-    });
-
-    group.bench_function("inv_mod, U256", |b| {
-        b.iter_batched(
-            || {
-                let m = U256::random(&mut OsRng);
-                loop {
-                    let x = U256::random(&mut OsRng);
-                    let inv_x = x.inv_mod(&m);
-                    if inv_x.is_some().into() {
-                        break (x, m);
-                    }
-                }
-            },
-            |(x, m)| black_box(x.inv_mod(&m)),
-            BatchSize::SmallInput,
-        )
-    });
-
-    group.finish();
-}
-
-fn bench_sqrt(c: &mut Criterion) {
-    let mut group = c.benchmark_group("sqrt");
-
-    group.bench_function("sqrt, U256", |b| {
-        b.iter_batched(
-            || U256::random(&mut OsRng),
-            |x| x.sqrt(),
-            BatchSize::SmallInput,
-        )
-    });
-
-    group.bench_function("sqrt_vartime, U256", |b| {
-        b.iter_batched(
-            || U256::random(&mut OsRng),
-            |x| x.sqrt_vartime(),
-            BatchSize::SmallInput,
-        )
-    });
-}
-
-fn bench_pxgcd(c: &mut Criterion) {
-    let mut group = c.benchmark_group("partial_xgcd");
-
-    group.bench_function("partial_xgcd, U1024", |b| {
+    group.bench_function("U1024xU1024", |b| {
         b.iter_batched(
             || (U1024::random(&mut OsRng), U1024::random(&mut OsRng)),
-            |(x, y)| x.partial_xgcd(&y, 512),
+            |(x, y)| x.split_mul(&y),
             BatchSize::SmallInput,
         )
     });
+    group.bench_function("U2048xU512", |b| {
+        b.iter_batched(
+            || (U2048::random(&mut OsRng), U512::random(&mut OsRng)),
+            |(x, y)| x.split_mul(&y),
+            BatchSize::SmallInput,
+        )
+    });
+    group.bench_function("U2048xU1024(U512)", |b| {
+        b.iter_batched(
+            || {
+                (
+                    U2048::random(&mut OsRng),
+                    U512::random(&mut OsRng).resize::<{ U1024::LIMBS }>(),
+                )
+            },
+            |(x, y)| x.split_mul(&y),
+            BatchSize::SmallInput,
+        )
+    });
+    group.bench_function("U2048xU1024", |b| {
+        b.iter_batched(
+            || (U2048::random(&mut OsRng), U1024::random(&mut OsRng)),
+            |(x, y)| x.split_mul(&y),
+            BatchSize::SmallInput,
+        )
+    });
+    group.bench_function("U2048xU2048(U1024)", |b| {
+        b.iter_batched(
+            || {
+                (
+                    U2048::random(&mut OsRng),
+                    U1024::random(&mut OsRng).resize::<{ U2048::LIMBS }>(),
+                )
+            },
+            |(x, y)| x.split_mul(&y),
+            BatchSize::SmallInput,
+        )
+    });
+    group.bench_function("U2048xU2048", |b| {
+        b.iter_batched(
+            || (U2048::random(&mut OsRng), U2048::random(&mut OsRng)),
+            |(x, y)| x.split_mul(&y),
+            BatchSize::SmallInput,
+        )
+    });
+    group.finish();
+}
 
-    group.bench_function("bounded_partial_xgcd, U1024, 930 bits", |b| {
+fn bench_mul_vt(c: &mut Criterion) {
+    let mut group = c.benchmark_group("mul (vt)");
+    group.bench_function("U512xU256", |b| {
+        b.iter_batched(
+            || (U512::random(&mut OsRng), U256::random(&mut OsRng)),
+            |(x, y)| x.split_mul_vartime(&y),
+            BatchSize::SmallInput,
+        )
+    });
+    group.bench_function("U512xU512(U256)", |b| {
+        b.iter_batched(
+            || {
+                (
+                    U512::random(&mut OsRng),
+                    U256::random(&mut OsRng).resize::<{ U512::LIMBS }>(),
+                )
+            },
+            |(x, y)| x.split_mul_vartime(&y),
+            BatchSize::SmallInput,
+        )
+    });
+    group.bench_function("U512xU512", |b| {
+        b.iter_batched(
+            || (U512::random(&mut OsRng), U512::random(&mut OsRng)),
+            |(x, y)| x.split_mul_vartime(&y),
+            BatchSize::SmallInput,
+        )
+    });
+    group.bench_function("U1024xU512", |b| {
+        b.iter_batched(
+            || (U1024::random(&mut OsRng), U512::random(&mut OsRng)),
+            |(x, y)| x.split_mul_vartime(&y),
+            BatchSize::SmallInput,
+        )
+    });
+    group.bench_function("U1024xU1024(U512)", |b| {
+        b.iter_batched(
+            || {
+                (
+                    U1024::random(&mut OsRng),
+                    U512::random(&mut OsRng).resize::<{ U1024::LIMBS }>(),
+                )
+            },
+            |(x, y)| x.split_mul_vartime(&y),
+            BatchSize::SmallInput,
+        )
+    });
+    group.bench_function("U1024xU1024", |b| {
         b.iter_batched(
             || (U1024::random(&mut OsRng), U1024::random(&mut OsRng)),
-            |(x, y)| x.bounded_partial_xgcd(&y, 465, 930),
+            |(x, y)| x.split_mul_vartime(&y),
             BatchSize::SmallInput,
         )
     });
+    group.bench_function("U2048xU512", |b| {
+        b.iter_batched(
+            || (U2048::random(&mut OsRng), U512::random(&mut OsRng)),
+            |(x, y)| x.split_mul_vartime(&y),
+            BatchSize::SmallInput,
+        )
+    });
+    group.bench_function("U2048xU1024(U512)", |b| {
+        b.iter_batched(
+            || {
+                (
+                    U2048::random(&mut OsRng),
+                    U512::random(&mut OsRng).resize::<{ U1024::LIMBS }>(),
+                )
+            },
+            |(x, y)| x.split_mul_vartime(&y),
+            BatchSize::SmallInput,
+        )
+    });
+    group.bench_function("U2048xU1024", |b| {
+        b.iter_batched(
+            || (U2048::random(&mut OsRng), U1024::random(&mut OsRng)),
+            |(x, y)| x.split_mul_vartime(&y),
+            BatchSize::SmallInput,
+        )
+    });
+    group.bench_function("U2048xU2048(U1024)", |b| {
+        b.iter_batched(
+            || {
+                (
+                    U2048::random(&mut OsRng),
+                    U1024::random(&mut OsRng).resize::<{ U2048::LIMBS }>(),
+                )
+            },
+            |(x, y)| x.split_mul_vartime(&y),
+            BatchSize::SmallInput,
+        )
+    });
+    group.bench_function("U2048xU2048", |b| {
+        b.iter_batched(
+            || (U2048::random(&mut OsRng), U2048::random(&mut OsRng)),
+            |(x, y)| x.split_mul_vartime(&y),
+            BatchSize::SmallInput,
+        )
+    });
+    group.finish();
+}
+
+fn bench_mul_bounded(c: &mut Criterion) {
+    let mut group = c.benchmark_group("mul (bounded)");
+    group.bench_function("U512xU256", |b| {
+        b.iter_batched(
+            || (U512::random(&mut OsRng), U256::random(&mut OsRng)),
+            |(x, y)| x.bounded_split_mul(&y, U512::LIMBS, U256::LIMBS),
+            BatchSize::SmallInput,
+        )
+    });
+    group.bench_function("U512xU512(U256)", |b| {
+        b.iter_batched(
+            || {
+                (
+                    U512::random(&mut OsRng),
+                    U256::random(&mut OsRng).resize::<{ U512::LIMBS }>(),
+                )
+            },
+            |(x, y)| x.bounded_split_mul(&y, U512::LIMBS, U256::LIMBS),
+            BatchSize::SmallInput,
+        )
+    });
+    group.bench_function("U512xU512", |b| {
+        b.iter_batched(
+            || (U512::random(&mut OsRng), U512::random(&mut OsRng)),
+            |(x, y)| x.bounded_split_mul(&y, U512::LIMBS, U512::LIMBS),
+            BatchSize::SmallInput,
+        )
+    });
+    group.bench_function("U1024xU512", |b| {
+        b.iter_batched(
+            || (U1024::random(&mut OsRng), U512::random(&mut OsRng)),
+            |(x, y)| x.bounded_split_mul(&y, U1024::LIMBS, U512::LIMBS),
+            BatchSize::SmallInput,
+        )
+    });
+    group.bench_function("U1024xU1024(U512)", |b| {
+        b.iter_batched(
+            || {
+                (
+                    U1024::random(&mut OsRng),
+                    U512::random(&mut OsRng).resize::<{ U1024::LIMBS }>(),
+                )
+            },
+            |(x, y)| x.bounded_split_mul(&y, U1024::LIMBS, U512::LIMBS),
+            BatchSize::SmallInput,
+        )
+    });
+    group.bench_function("U1024xU1024", |b| {
+        b.iter_batched(
+            || (U1024::random(&mut OsRng), U1024::random(&mut OsRng)),
+            |(x, y)| x.bounded_split_mul(&y, U1024::LIMBS, U1024::LIMBS),
+            BatchSize::SmallInput,
+        )
+    });
+    group.bench_function("U2048xU512", |b| {
+        b.iter_batched(
+            || (U2048::random(&mut OsRng), U512::random(&mut OsRng)),
+            |(x, y)| x.bounded_split_mul(&y, U2048::LIMBS, U512::LIMBS),
+            BatchSize::SmallInput,
+        )
+    });
+    group.bench_function("U2048xU1024(U512)", |b| {
+        b.iter_batched(
+            || {
+                (
+                    U2048::random(&mut OsRng),
+                    U512::random(&mut OsRng).resize::<{ U1024::LIMBS }>(),
+                )
+            },
+            |(x, y)| x.bounded_split_mul(&y, U2048::LIMBS, U512::LIMBS),
+            BatchSize::SmallInput,
+        )
+    });
+    group.bench_function("U2048xU1024", |b| {
+        b.iter_batched(
+            || (U2048::random(&mut OsRng), U1024::random(&mut OsRng)),
+            |(x, y)| x.bounded_split_mul(&y, U2048::LIMBS, U1024::LIMBS),
+            BatchSize::SmallInput,
+        )
+    });
+    group.bench_function("U2048xU2048(U1024)", |b| {
+        b.iter_batched(
+            || {
+                (
+                    U2048::random(&mut OsRng),
+                    U1024::random(&mut OsRng).resize::<{ U2048::LIMBS }>(),
+                )
+            },
+            |(x, y)| x.bounded_split_mul(&y, U2048::LIMBS, U1024::LIMBS),
+            BatchSize::SmallInput,
+        )
+    });
+    group.bench_function("U2048xU2048", |b| {
+        b.iter_batched(
+            || (U2048::random(&mut OsRng), U2048::random(&mut OsRng)),
+            |(x, y)| x.bounded_split_mul(&y, U2048::LIMBS, U2048::LIMBS),
+            BatchSize::SmallInput,
+        )
+    });
+    group.finish();
+}
+
+fn bench_div_vt_rhs(c: &mut Criterion) {
+    let mut group = c.benchmark_group("div (vt in rhs only)");
+    group.bench_function("U512(U256)/U512", |b| {
+        b.iter_batched(
+            || {
+                (
+                    U256::random(&mut OsRng).resize::<{ U512::LIMBS }>(),
+                    U512::random(&mut OsRng).bitor(&Uint::ONE).to_nz().unwrap(),
+                )
+            },
+            |(x, y)| x.div_rem_vartime(&y),
+            BatchSize::SmallInput,
+        )
+    });
+    group.bench_function("U1024(U512)/U512", |b| {
+        b.iter_batched(
+            || {
+                (
+                    U512::random(&mut OsRng).resize::<{ U1024::LIMBS }>(),
+                    U512::random(&mut OsRng).bitor(&Uint::ONE).to_nz().unwrap(),
+                )
+            },
+            |(x, y)| x.div_rem_vartime(&y),
+            BatchSize::SmallInput,
+        )
+    });
+    group.bench_function("U2048(U1024)/U512", |b| {
+        b.iter_batched(
+            || {
+                (
+                    U1024::random(&mut OsRng).resize::<{ U2048::LIMBS }>(),
+                    U512::random(&mut OsRng).bitor(&Uint::ONE).to_nz().unwrap(),
+                )
+            },
+            |(x, y)| x.div_rem_vartime(&y),
+            BatchSize::SmallInput,
+        )
+    });
+    group.bench_function("U1024(U512)/U1024", |b| {
+        b.iter_batched(
+            || {
+                (
+                    U512::random(&mut OsRng).resize::<{ U1024::LIMBS }>(),
+                    U1024::random(&mut OsRng).bitor(&Uint::ONE).to_nz().unwrap(),
+                )
+            },
+            |(x, y)| x.div_rem_vartime(&y),
+            BatchSize::SmallInput,
+        )
+    });
+    group.bench_function("U2048(U1024)/U1024", |b| {
+        b.iter_batched(
+            || {
+                (
+                    U1024::random(&mut OsRng).resize::<{ U2048::LIMBS }>(),
+                    U1024::random(&mut OsRng).bitor(&Uint::ONE).to_nz().unwrap(),
+                )
+            },
+            |(x, y)| x.div_rem_vartime(&y),
+            BatchSize::SmallInput,
+        )
+    });
+    group.bench_function("U2048(U1024)/U2048", |b| {
+        b.iter_batched(
+            || {
+                (
+                    U1024::random(&mut OsRng).resize::<{ U2048::LIMBS }>(),
+                    U2048::random(&mut OsRng).bitor(&Uint::ONE).to_nz().unwrap(),
+                )
+            },
+            |(x, y)| x.div_rem_vartime(&y),
+            BatchSize::SmallInput,
+        )
+    });
+    group.finish();
+}
+
+fn bench_div_full_vt(c: &mut Criterion) {
+    let mut group = c.benchmark_group("div (fully vartime)");
+    group.bench_function("U512(U256)/U512", |b| {
+        b.iter_batched(
+            || {
+                (
+                    U256::random(&mut OsRng).resize::<{ U512::LIMBS }>(),
+                    U512::random(&mut OsRng).bitor(&Uint::ONE).to_nz().unwrap(),
+                )
+            },
+            |(x, y)| x.div_rem_full_vartime(&y),
+            BatchSize::SmallInput,
+        )
+    });
+    group.bench_function("U1024(U512)/U512", |b| {
+        b.iter_batched(
+            || {
+                (
+                    U512::random(&mut OsRng).resize::<{ U1024::LIMBS }>(),
+                    U512::random(&mut OsRng).bitor(&Uint::ONE).to_nz().unwrap(),
+                )
+            },
+            |(x, y)| x.div_rem_full_vartime(&y),
+            BatchSize::SmallInput,
+        )
+    });
+    group.bench_function("U2048(U1024)/U512", |b| {
+        b.iter_batched(
+            || {
+                (
+                    U1024::random(&mut OsRng).resize::<{ U2048::LIMBS }>(),
+                    U512::random(&mut OsRng).bitor(&Uint::ONE).to_nz().unwrap(),
+                )
+            },
+            |(x, y)| x.div_rem_full_vartime(&y),
+            BatchSize::SmallInput,
+        )
+    });
+    group.bench_function("U1024(U512)/U1024", |b| {
+        b.iter_batched(
+            || {
+                (
+                    U512::random(&mut OsRng).resize::<{ U1024::LIMBS }>(),
+                    U1024::random(&mut OsRng).bitor(&Uint::ONE).to_nz().unwrap(),
+                )
+            },
+            |(x, y)| x.div_rem_full_vartime(&y),
+            BatchSize::SmallInput,
+        )
+    });
+    group.bench_function("U2048(U1024)/U1024", |b| {
+        b.iter_batched(
+            || {
+                (
+                    U1024::random(&mut OsRng).resize::<{ U2048::LIMBS }>(),
+                    U1024::random(&mut OsRng).bitor(&Uint::ONE).to_nz().unwrap(),
+                )
+            },
+            |(x, y)| x.div_rem_full_vartime(&y),
+            BatchSize::SmallInput,
+        )
+    });
+    group.bench_function("U2048(U1024)/U2048", |b| {
+        b.iter_batched(
+            || {
+                (
+                    U1024::random(&mut OsRng).resize::<{ U2048::LIMBS }>(),
+                    U2048::random(&mut OsRng).bitor(&Uint::ONE).to_nz().unwrap(),
+                )
+            },
+            |(x, y)| x.div_rem_full_vartime(&y),
+            BatchSize::SmallInput,
+        )
+    });
+    group.finish();
 }
 
 criterion_group!(
     benches,
-    bench_random_bits,
-    bench_mul,
-    bench_division,
-    bench_gcd,
-    bench_shl,
-    bench_shr,
-    bench_inv_mod,
-    bench_sqrt,
-    bench_pxgcd
+    // bench_random_bits,
+    // bench_mul,
+    // bench_division,
+    // bench_gcd,
+    // bench_shl,
+    // bench_shr,
+    // bench_inv_mod,
+    // bench_sqrt,
+    // bench_pxgcd,
+    bench_mul_ct,
+    bench_mul_vt,
+    bench_mul_bounded,
+    bench_div_vt_rhs,
+    bench_div_full_vt,
 );
 
 criterion_main!(benches);
