@@ -156,7 +156,7 @@ impl<const LIMBS: usize> Uint<LIMBS> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Limb, U128, Uint};
+    use crate::{Limb, Uint, U128};
 
     #[test]
     fn test_bounded_div2k_mod_q() {
