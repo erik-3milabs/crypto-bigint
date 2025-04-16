@@ -259,6 +259,18 @@ fn bench_gcd(c: &mut Criterion) {
         )
     });
 
+    group.bench_function("xgcd, U256", |b| {
+        b.iter_batched(
+            || {
+                let f = Odd::<U1024>::random(&mut OsRng);
+                let g = Odd::<U1024>::random(&mut OsRng);
+                (f, g)
+            },
+            |(f, g)| black_box(f.binxgcd(&g)),
+            BatchSize::SmallInput,
+        )
+    });
+
     group.finish();
 }
 
@@ -437,9 +449,9 @@ fn bench_pxgcd(c: &mut Criterion) {
 
 criterion_group!(
     benches,
-    bench_random_bits,
-    bench_mul,
-    bench_division,
+    // bench_random_bits,
+    // bench_mul,
+    // bench_division,
     bench_gcd,
     bench_shl,
     bench_shr,

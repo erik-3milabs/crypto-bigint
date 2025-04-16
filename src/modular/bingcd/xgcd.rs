@@ -1,4 +1,4 @@
-use crate::modular::bingcd::matrix::BinXgcdMatrix;
+use crate::modular::bingcd::matrix::{BinXgcdMatrix, IntBinXgcdMatrix};
 use crate::modular::bingcd::tools::const_max;
 use crate::{ConstChoice, Int, NonZero, Odd, Uint, U128, U64};
 
@@ -232,7 +232,7 @@ impl<const LIMBS: usize> Odd<Uint<LIMBS>> {
         rhs: &Self,
     ) -> RawOddUintBinxgcdOutput<LIMBS> {
         let (mut a, mut b) = (*self.as_ref(), *rhs.as_ref());
-        let mut matrix = BinXgcdMatrix::UNIT;
+        let mut matrix = IntBinXgcdMatrix::UNIT;
 
         let (mut a_sgn, mut b_sgn);
         let mut i = 0;
@@ -251,50 +251,49 @@ impl<const LIMBS: usize> Odd<Uint<LIMBS>> {
             let b_eq_compact_b =
                 ConstChoice::from_u32_le(b_bits, K - 1).or(ConstChoice::from_u32_eq(n, 2 * K));
 
-            // Verify that `compact_a` and `compact_b` preserve the ordering of `a` and `b`.
-            let a_cmp_b = Uint::cmp(&a, &b);
-            let compact_a_cmp_compact_b = Uint::cmp(&compact_a, &compact_b);
-            let compact_maintains_ordering =
-                ConstChoice::from_i8_eq(a_cmp_b, compact_a_cmp_compact_b);
-
             // Compute the K-1 iteration update matrix from a_ and b_
-            let (.., mut update_matrix) = compact_a
+            let (.., update_matrix) = compact_a
                 .to_odd()
                 .expect("a is always odd")
                 .partial_binxgcd_vartime::<LIMBS_K>(&compact_b, K - 1, b_eq_compact_b);
 
-            // Deal with the case that compacting loses the ordering of `(a, b)`. When this is the
-            // case, multiplying `update_matrix` with `(a, b)` will map one of the two to a negative
-            // value, which will break the algorithm. To resolve this, we observe that this case
-            // can only occur whenever (at least) the top `K+1` bits of `a` and `b` are the same.
-            // As a result, subtracting one from the other causes `a.bits() + b.bits()` to shrink by
-            // at least `K+1 > K-1` (as required by the loop invariant). It thus suffices to replace
-            // `update_matrix` with a matrix that represents subtracting one from the other.
-            let a_lt_b = ConstChoice::from_i8_eq(a_cmp_b, -1);
-            update_matrix = BinXgcdMatrix::select(
-                &BinXgcdMatrix::get_subtraction_matrix(a_lt_b, K - 1),
-                &update_matrix,
-                compact_maintains_ordering,
-            );
-
             // Update `a` and `b` using the update matrix
             let (updated_a, updated_b) = update_matrix.extended_apply_to((a, b));
-            (a, a_sgn) = updated_a.wrapping_drop_extension();
-            (b, b_sgn) = updated_b.wrapping_drop_extension();
+            matrix = matrix.wrapping_left_mul(&update_matrix);
 
-            assert!(a_sgn.not().to_bool_vartime(), "a is never negative");
-            assert!(b_sgn.not().to_bool_vartime(), "b is never negative");
+            (a, a_sgn) = updated_a.split_drop_extension();
+            matrix.conditional_negate_top_row(a_sgn);
 
-            matrix = update_matrix.wrapping_mul_right(&matrix);
-
-            // Cont. of dealing with the case that compacting loses the ordering of `(a, b)`.
-            // When `a > b` -- and thus `b` is subtracted from `a` -- it could be that `a` is now
-            // even. Since `a` should always be odd, we swap the two operands. Note that `b` must be
-            // odd, since subtracting it from the odd `a` yielded an even number.
-            let a_is_even = a.is_odd().not();
-            Uint::conditional_swap(&mut a, &mut b, a_is_even);
-            matrix.conditional_swap_rows(a_is_even)
+            (b, b_sgn) = updated_b.split_drop_extension();
+            matrix.conditional_negate_bottom_row(b_sgn);
         }
+
+        // Convert the matrix to an `BinXgcdMatrix`.
+        // Recall that, at this point, b = 0. This implies that the signs of the two elements on the
+        // bottom row are not the same. Moreover, it is safe to negate both elements. We can therefore
+        // take move the IntBinxgcdMatrix into a BinXgcdMatrix.
+        let (m00, m01, m10, m11, k, k_upper_bound) = matrix.to_elements();
+        let (abs_m00, sgn_m00) = m00.abs_sign();
+        let (abs_m01, sgn_m01) = m01.abs_sign();
+        debug_assert!(abs_m00
+            .is_nonzero()
+            .not()
+            .or(abs_m01.is_nonzero().not())
+            .or(sgn_m00.ne(sgn_m01))
+            .to_bool_vartime());
+        let pattern = abs_m00
+            .is_nonzero()
+            .and(sgn_m00.not())
+            .or(abs_m01.is_nonzero().and(sgn_m01));
+        let matrix = BinXgcdMatrix::new(
+            abs_m00,
+            abs_m01,
+            m10.abs(),
+            m11.abs(),
+            pattern,
+            k,
+            k_upper_bound,
+        );
 
         let gcd = a
             .to_odd()
@@ -620,8 +619,8 @@ mod tests {
             assert_eq!(new_b, target_b);
 
             let (computed_a, computed_b) = matrix.extended_apply_to((A.get(), B));
-            let computed_a = computed_a.wrapping_drop_extension().0;
-            let computed_b = computed_b.wrapping_drop_extension().0;
+            let computed_a = computed_a.split_drop_extension().0;
+            let computed_b = computed_b.split_drop_extension().0;
 
             assert_eq!(computed_a, target_a);
             assert_eq!(computed_b, target_b);
@@ -672,6 +671,9 @@ mod tests {
         assert_eq!(
             x.widening_mul_uint(&lhs) + y.widening_mul_uint(&rhs),
             output.gcd.resize().as_int(),
+            "{:?}\n{:?}",
+            lhs,
+            rhs
         );
 
         // Test the Bezout coefficients for minimality
@@ -691,8 +693,8 @@ mod tests {
     mod test_binxgcd_nz {
         use crate::modular::bingcd::xgcd::tests::test_xgcd;
         use crate::{
-            ConcatMixed, Gcd, Int, Uint, U1024, U128, U192, U2048, U256, U384, U4096, U512, U64,
-            U768, U8192,
+            ConcatMixed, Gcd, Int, RandomMod, Uint, U1024, U128, U192, U2048, U256, U384, U4096,
+            U512, U64, U768, U8192,
         };
 
         #[cfg(feature = "rand_core")]
@@ -718,9 +720,10 @@ mod tests {
                 Gcd<Output = Uint<LIMBS>> + ConcatMixed<Uint<LIMBS>, MixedOutput = Uint<DOUBLE>>,
         {
             let mut rng = make_rng();
+            let bound = Int::MIN.abs().to_nz().unwrap();
             for _ in 0..iterations {
-                let x = Uint::random(&mut rng).bitor(&Uint::ONE);
-                let y = Uint::random(&mut rng).saturating_add(&Uint::ONE);
+                let x = Uint::random_mod(&mut rng, &bound).bitor(&Uint::ONE);
+                let y = Uint::random_mod(&mut rng, &bound).saturating_add(&Uint::ONE);
                 binxgcd_nz_test(x, y);
             }
         }
@@ -838,8 +841,8 @@ mod tests {
         use crate::modular::bingcd::xgcd::tests::test_xgcd;
         use crate::modular::bingcd::xgcd::{DOUBLE_SUMMARY_LIMBS, SUMMARY_BITS, SUMMARY_LIMBS};
         use crate::{
-            ConcatMixed, Gcd, Int, Uint, U1024, U128, U192, U2048, U256, U384, U4096, U512, U64,
-            U768, U8192,
+            ConcatMixed, Gcd, Int, RandomMod, Uint, U1024, U128, U192, U2048, U256, U384, U4096,
+            U512, U64, U768, U8192,
         };
 
         fn optimized_binxgcd_test<const LIMBS: usize, const DOUBLE: usize>(
@@ -864,9 +867,10 @@ mod tests {
                 Gcd<Output = Uint<LIMBS>> + ConcatMixed<Uint<LIMBS>, MixedOutput = Uint<DOUBLE>>,
         {
             let mut rng = make_rng();
+            let bound = Int::MIN.abs().to_nz().unwrap();
             for _ in 0..iterations {
-                let x = Uint::<LIMBS>::random(&mut rng).bitor(&Uint::ONE);
-                let y = Uint::<LIMBS>::random(&mut rng).bitor(&Uint::ONE);
+                let x = Uint::<LIMBS>::random_mod(&mut rng, &bound).bitor(&Uint::ONE);
+                let y = Uint::<LIMBS>::random_mod(&mut rng, &bound).bitor(&Uint::ONE);
                 optimized_binxgcd_test(x, y);
             }
         }
