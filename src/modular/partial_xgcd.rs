@@ -1,4 +1,4 @@
-use crate::{ConstChoice, Uint};
+use crate::{ConstChoice, Limb, Uint};
 
 /// The matrix representation used in the partial extended gcd algorithm.
 ///
@@ -151,6 +151,71 @@ impl<const LIMBS: usize> Uint<LIMBS> {
         matrix.swap_rows_if(matrix.pattern.not());
 
         (a, b, matrix)
+    }
+
+    /// XGCD reduce `self` and `rhs` until both can be represented with `threshold` bits.
+    ///
+    /// Requires that the most significant bit of `self` and `rhs` is NOT set.
+    pub fn fast_partial_xgcd(
+        &self,
+        rhs: &Uint<LIMBS>,
+        threshold: u32,
+    ) -> (Self, Self, PxgcdMatrix<LIMBS>, u32) {
+        // TODO: deal with situations where a and b have their top bit set
+        assert!(self.as_int().is_negative().not().to_bool_vartime());
+        assert!(rhs.as_int().is_negative().not().to_bool_vartime());
+
+        let (mut a, mut b) = (*self, *rhs);
+        let mut matrix = PxgcdMatrix::UNIT;
+
+        // Make sure a >= b
+        let a_lt_b = Uint::lt(&a, &b);
+        Uint::conditional_swap(&mut a, &mut b, a_lt_b);
+        matrix.swap_rows_if(a_lt_b);
+
+        // c = b * 2^k
+        let mut k = a.bits() - b.bits();
+        let mut c = b.shl(k);
+
+        let mut iterations = 0;
+        while a.bits() > threshold && b != Uint::ZERO {
+            let double_c = c.shl_vartime(1);
+            let half_c = c.shr_vartime(1);
+            let (a_sub_c, borrow) = a.sbb(&c, Limb::ZERO);
+
+            if double_c <= a {
+                c = double_c;
+                k = k.saturating_add(1);
+            } else {
+                let no_underflow = borrow == Limb::ZERO;
+                if no_underflow {
+                    a = a_sub_c;
+                    matrix.conditional_subtract_bottom_row_2k_times_from_top_row(
+                        k,
+                        ConstChoice::TRUE,
+                    );
+                }
+
+                c = half_c;
+                k = k.saturating_sub(1);
+            }
+
+            if c < b {
+                assert_eq!(k, 0);
+                Self::swap(&mut a, &mut b);
+                matrix.swap_rows_if(ConstChoice::TRUE);
+                c = b;
+                k = 0;
+            }
+
+            iterations += 1;
+        }
+
+        // Make sure the matrix has a positive determinant
+        Uint::conditional_swap(&mut a, &mut b, matrix.pattern.not());
+        matrix.swap_rows_if(matrix.pattern.not());
+
+        (a, b, matrix, iterations)
     }
 }
 
@@ -311,7 +376,7 @@ mod tests {
         }
 
         #[test]
-        fn text_partial_xgcd_non_unitary_elements() {
+        fn test_partial_xgcd_non_unitary_elements() {
             let (a, b, matrix) = U64::from(2u64).partial_xgcd(&U64::ONE, 1);
             assert_eq!(a, U64::ZERO);
             assert_eq!(b, U64::ONE);
@@ -328,7 +393,7 @@ mod tests {
         }
 
         #[test]
-        fn text_partial_xgcd_zero() {
+        fn test_partial_xgcd_zero() {
             let threshold = 6;
 
             let (a, b) = (U64::from(554u64), U64::ZERO);
@@ -345,7 +410,7 @@ mod tests {
         }
 
         #[test]
-        fn text_partial_xgcd() {
+        fn test_partial_xgcd() {
             let threshold = 6;
 
             let (a, b) = (U64::from(554u64), U64::from(3321u64));
@@ -358,7 +423,7 @@ mod tests {
         }
 
         #[test]
-        fn text_partial_xgcd_large() {
+        fn test_partial_xgcd_large() {
             let threshold = 512;
 
             let (a, b) = (U1024::MAX, U1024::ONE.shl(750));
@@ -371,7 +436,7 @@ mod tests {
         }
 
         #[test]
-        fn text_partial_xgcd_no_threshold_underflow() {
+        fn test_partial_xgcd_no_threshold_underflow() {
             let threshold = 700;
             let (a, b) = (U64::ONE, U64::ZERO);
             let (partial_a, partial_b, matrix) = a.partial_xgcd(&b, threshold);
@@ -380,6 +445,136 @@ mod tests {
             assert!(partial_b.bits() <= threshold);
 
             assert_eq!(matrix.wrapping_apply((a, b)), (partial_a, partial_b));
+        }
+    }
+
+    mod test_fast_pxgcd {
+        use crate::modular::partial_xgcd::tests::Vector;
+        use crate::{Concat, ConstChoice, PxgcdMatrix, Uint, U1024, U64};
+        use core::ops::Sub;
+
+        fn test_fast_partial_xgcd_output<const LIMBS: usize, const DOUBLE: usize>(
+            input: Vector<LIMBS>,
+            threshold: u32,
+            output: Vector<LIMBS>,
+            matrix: PxgcdMatrix<LIMBS>,
+        ) where
+            Uint<LIMBS>: Concat<Output = Uint<DOUBLE>>,
+        {
+            let (res_a, res_b) = output;
+            assert!(res_a.bits() <= threshold);
+            assert!(res_b.bits() <= threshold);
+
+            assert_eq!(matrix.wrapping_apply(input), output)
+        }
+
+        fn fast_pxgcd_test<const LIMBS: usize, const DOUBLE: usize>(
+            input: Vector<LIMBS>,
+            threshold: u32,
+        ) where
+            Uint<LIMBS>: Concat<Output = Uint<DOUBLE>>,
+        {
+            let (a, b) = input;
+            let (res_a, res_b, matrix, iterations) = a.fast_partial_xgcd(&b, threshold);
+            test_fast_partial_xgcd_output((a, b), threshold, (res_a, res_b), matrix);
+            assert!(iterations < (Uint::<LIMBS>::BITS - threshold) * 5 / 2);
+        }
+
+        #[test]
+        fn test_fast_pxgcd_unit() {
+            let (a, b, matrix, ..) = U64::ONE.fast_partial_xgcd(&U64::ZERO, 1);
+            assert_eq!(a, U64::ONE);
+            assert_eq!(b, U64::ZERO);
+            assert_eq!(matrix, PxgcdMatrix::UNIT);
+        }
+
+        #[test]
+        fn test_fast_pxgcd_unit_swapped() {
+            let (a, b, matrix, ..) = U64::ZERO.fast_partial_xgcd(&U64::ONE, 1);
+            assert_eq!(a, U64::ZERO);
+            assert_eq!(b, U64::ONE);
+            assert_eq!(matrix, PxgcdMatrix::UNIT);
+        }
+
+        #[test]
+        fn test_fast_pxgcd_non_unitary_elements() {
+            let (a, b, matrix, ..) = U64::from(2u64).fast_partial_xgcd(&U64::ONE, 1);
+            assert_eq!(a, U64::ZERO);
+            assert_eq!(b, U64::ONE);
+            assert_eq!(
+                matrix,
+                PxgcdMatrix::new(
+                    U64::ONE,
+                    U64::from_u64(2u64),
+                    U64::ZERO,
+                    U64::ONE,
+                    ConstChoice::TRUE
+                )
+            );
+        }
+
+        #[test]
+        fn test_fast_pxgcd_zero() {
+            let threshold = 6;
+
+            let (a, b) = (U64::from(554u64), U64::ZERO);
+            let (partial_a, partial_b, matrix, ..) = a.fast_partial_xgcd(&b, threshold);
+            assert_eq!(partial_a, U64::from(554u64));
+            assert_eq!(partial_b, U64::ZERO);
+            assert_eq!(matrix.wrapping_apply((a, b)), (partial_a, partial_b));
+
+            let (partial_a, partial_b, matrix, ..) = b.fast_partial_xgcd(&a, threshold);
+
+            assert_eq!(partial_a, U64::ZERO);
+            assert_eq!(partial_b, U64::from(554u64));
+            assert_eq!(matrix.wrapping_apply((b, a)), (partial_a, partial_b));
+        }
+
+        #[test]
+        fn test_fast_pxgcd() {
+            let threshold = 6;
+
+            let (a, b) = (U64::from(554u64), U64::from(3321u64));
+            let (partial_a, partial_b, matrix, ..) = a.fast_partial_xgcd(&b, threshold);
+
+            assert_eq!(partial_a, U64::from(3u64));
+            assert_eq!(partial_b, U64::from(23u64));
+
+            assert_eq!(matrix.wrapping_apply((a, b)), (partial_a, partial_b));
+        }
+
+        #[test]
+        fn test_fast_pxgcd_large() {
+            let threshold = 512;
+
+            let (a, b) = (U1024::MAX, U1024::ONE.shl(750));
+            let (partial_a, partial_b, matrix, ..) = a.fast_partial_xgcd(&b, threshold);
+
+            assert!(partial_a.bits() <= threshold);
+            assert!(partial_b.bits() <= threshold);
+
+            assert_eq!(matrix.wrapping_apply((a, b)), (partial_a, partial_b));
+        }
+
+        #[test]
+        fn test_fast_pxgcd_no_threshold_underflow() {
+            let threshold = 700;
+            let (a, b) = (U64::ONE, U64::ZERO);
+            let (partial_a, partial_b, matrix, ..) = a.fast_partial_xgcd(&b, threshold);
+
+            assert!(partial_a.bits() <= threshold);
+            assert!(partial_b.bits() <= threshold);
+
+            assert_eq!(matrix.wrapping_apply((a, b)), (partial_a, partial_b));
+        }
+
+        #[test]
+        fn test_fast_pxgcd_edge_case() {
+            // Case a = b + 1
+            let a = U64::MAX.shr1();
+            let b = a.sub(Uint::ONE);
+            let threshold = 32;
+            fast_pxgcd_test((a, b), threshold);
         }
     }
 }
