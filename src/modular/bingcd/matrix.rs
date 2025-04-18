@@ -38,30 +38,6 @@ impl<const LIMBS: usize> BinXgcdMatrix<LIMBS> {
         0,
     );
 
-    /// Construct the matrix representing the subtraction of one vector element from the other.
-    /// Subtracts the top element from the bottom if `top_from_bottom` is truthy, and the one
-    /// subtracting the bottom element from the top otherwise.
-    ///
-    /// In other words, returns one of the following matrices, given `top_from_bottom`
-    /// ```text
-    ///   true         false
-    /// [  1 0 ]     [ 1 -1 ]
-    /// [ -1 1 ] or  [ 0  1 ]
-    /// ```
-    pub(crate) fn get_subtraction_matrix(top_from_bottom: ConstChoice, k_upper_bound: u32) -> Self {
-        let (mut m01, mut m10) = (Uint::ONE, Uint::ZERO);
-        Uint::conditional_swap(&mut m01, &mut m10, top_from_bottom);
-        Self::new(
-            Uint::ONE,
-            m01,
-            m10,
-            Uint::ONE,
-            ConstChoice::TRUE,
-            0,
-            k_upper_bound,
-        )
-    }
-
     pub(crate) const fn new(
         m00: Uint<LIMBS>,
         m01: Uint<LIMBS>,
@@ -349,8 +325,8 @@ impl<const LIMBS: usize> IntBinXgcdMatrix<LIMBS> {
 
 #[cfg(test)]
 mod tests {
-    use crate::modular::bingcd::matrix::{BinXgcdMatrix, IntBinXgcdMatrix};
-    use crate::{ConstChoice, Uint, I64, U256, U64};
+    use crate::modular::bingcd::matrix::{BinXgcdMatrix};
+    use crate::{ConstChoice, Uint, U256, U64};
 
     const X: BinXgcdMatrix<{ U256::LIMBS }> = BinXgcdMatrix::new(
         U256::from_u64(1u64),
@@ -555,134 +531,5 @@ mod tests {
         );
         assert_eq!(BinXgcdMatrix::select(&x, &y, ConstChoice::FALSE), x);
         assert_eq!(BinXgcdMatrix::select(&x, &y, ConstChoice::TRUE), y);
-    }
-
-    #[test]
-    fn test_get_subtraction_matrix() {
-        let x = BinXgcdMatrix::get_subtraction_matrix(ConstChoice::TRUE, 35);
-        assert_eq!(
-            x,
-            BinXgcdMatrix::new(
-                U64::ONE,
-                U64::ZERO,
-                U64::ONE,
-                U64::ONE,
-                ConstChoice::TRUE,
-                0,
-                35
-            )
-        );
-
-        let x = BinXgcdMatrix::get_subtraction_matrix(ConstChoice::FALSE, 63);
-        assert_eq!(
-            x,
-            BinXgcdMatrix::new(
-                U64::ONE,
-                U64::ONE,
-                U64::ZERO,
-                U64::ONE,
-                ConstChoice::TRUE,
-                0,
-                63
-            )
-        );
-    }
-
-    #[test]
-    fn test_wrapping_left_mul() {
-        let lhs = BinXgcdMatrix::new(
-            U64::from(55u64),
-            U64::from(34u64),
-            U64::from(12u64),
-            U64::from(78u64),
-            ConstChoice::TRUE,
-            10,
-            12,
-        );
-        let rhs = IntBinXgcdMatrix::new(
-            I64::from(-22i64),
-            I64::from(34i64),
-            I64::from(-33i64),
-            I64::from(128i64),
-            17,
-            22,
-        );
-
-        let res = rhs.wrapping_left_mul(&lhs);
-        assert_eq!(
-            res,
-            IntBinXgcdMatrix::new(
-                I64::from(-88i64),
-                I64::from(-2482i64),
-                I64::from(-2310i64),
-                I64::from(9576i64),
-                27,
-                34
-            )
-        )
-    }
-
-    #[test]
-    fn test_conditional_negate_top_row() {
-        let matrix = IntBinXgcdMatrix::new(
-            I64::from(-22i64),
-            I64::from(34i64),
-            I64::from(-33i64),
-            I64::from(128i64),
-            17,
-            22,
-        );
-
-        let mut tmp = matrix.clone();
-        tmp.conditional_negate_top_row(ConstChoice::FALSE);
-        assert_eq!(tmp, matrix);
-
-        tmp.conditional_negate_top_row(ConstChoice::TRUE);
-        assert_eq!(
-            tmp,
-            IntBinXgcdMatrix::new(
-                I64::from(22i64),
-                I64::from(-34i64),
-                I64::from(-33i64),
-                I64::from(128i64),
-                17,
-                22,
-            )
-        );
-
-        tmp.conditional_negate_top_row(ConstChoice::TRUE);
-        assert_eq!(tmp, matrix);
-    }
-
-    #[test]
-    fn test_conditional_negate_bottom_row() {
-        let matrix = IntBinXgcdMatrix::new(
-            I64::from(-22i64),
-            I64::from(34i64),
-            I64::from(-33i64),
-            I64::from(128i64),
-            17,
-            22,
-        );
-
-        let mut tmp = matrix;
-        tmp.conditional_negate_bottom_row(ConstChoice::FALSE);
-        assert_eq!(tmp, matrix);
-
-        tmp.conditional_negate_bottom_row(ConstChoice::TRUE);
-        assert_eq!(
-            tmp,
-            IntBinXgcdMatrix::new(
-                I64::from(-22i64),
-                I64::from(34i64),
-                I64::from(33i64),
-                I64::from(-128i64),
-                17,
-                22,
-            )
-        );
-
-        tmp.conditional_negate_bottom_row(ConstChoice::TRUE);
-        assert_eq!(tmp, matrix);
     }
 }
