@@ -449,9 +449,9 @@ fn bench_pxgcd(c: &mut Criterion) {
 
 criterion_group!(
     benches,
-    // bench_random_bits,
-    // bench_mul,
-    // bench_division,
+    bench_random_bits,
+    bench_mul,
+    bench_division,
     bench_gcd,
     bench_shl,
     bench_shr,
