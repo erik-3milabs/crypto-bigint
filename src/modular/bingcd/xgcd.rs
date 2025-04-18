@@ -693,14 +693,14 @@ mod tests {
     mod test_binxgcd_nz {
         use crate::modular::bingcd::xgcd::tests::test_xgcd;
         use crate::{
-            ConcatMixed, Gcd, Int, RandomMod, Uint, U1024, U128, U192, U2048, U256, U384, U4096,
-            U512, U64, U768, U8192,
+            ConcatMixed, Gcd, Int, Uint, U1024, U128, U192, U2048, U256, U384, U4096, U512, U64,
+            U768, U8192,
         };
 
         #[cfg(feature = "rand_core")]
         use super::make_rng;
         #[cfg(feature = "rand_core")]
-        use crate::Random;
+        use crate::RandomMod;
 
         fn binxgcd_nz_test<const LIMBS: usize, const DOUBLE: usize>(
             lhs: Uint<LIMBS>,
@@ -836,13 +836,13 @@ mod tests {
         #[cfg(feature = "rand_core")]
         use super::make_rng;
         #[cfg(feature = "rand_core")]
-        use crate::Random;
+        use crate::RandomMod;
 
         use crate::modular::bingcd::xgcd::tests::test_xgcd;
         use crate::modular::bingcd::xgcd::{DOUBLE_SUMMARY_LIMBS, SUMMARY_BITS, SUMMARY_LIMBS};
         use crate::{
-            ConcatMixed, Gcd, Int, RandomMod, Uint, U1024, U128, U192, U2048, U256, U384, U4096,
-            U512, U64, U768, U8192,
+            ConcatMixed, Gcd, Int, Uint, U1024, U128, U192, U2048, U256, U384, U4096, U512, U64,
+            U768, U8192,
         };
 
         fn optimized_binxgcd_test<const LIMBS: usize, const DOUBLE: usize>(

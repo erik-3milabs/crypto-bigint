@@ -234,15 +234,14 @@ mod tests {
         use core::ops::Div;
 
         #[cfg(feature = "rand_core")]
-        use crate::Random;
+        use crate::RandomMod;
         #[cfg(feature = "rand_core")]
         use rand_chacha::ChaChaRng;
         #[cfg(feature = "rand_core")]
         use rand_core::SeedableRng;
 
         use crate::{
-            Concat, Gcd, Int, RandomMod, Uint, U1024, U128, U16384, U2048, U256, U4096, U512, U64,
-            U8192,
+            Concat, Gcd, Int, Uint, U1024, U128, U16384, U2048, U256, U4096, U512, U64, U8192,
         };
 
         fn binxgcd_test<const LIMBS: usize, const DOUBLE: usize>(lhs: Uint<LIMBS>, rhs: Uint<LIMBS>)
