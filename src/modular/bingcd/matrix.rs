@@ -281,7 +281,7 @@ impl<const LIMBS: usize> IntBinXgcdMatrix<LIMBS> {
 
 #[cfg(test)]
 mod tests {
-    use crate::modular::bingcd::matrix::{BinXgcdMatrix};
+    use crate::modular::bingcd::matrix::BinXgcdMatrix;
     use crate::{ConstChoice, Uint, U256, U64};
 
     const X: BinXgcdMatrix<{ U256::LIMBS }> = BinXgcdMatrix::new(
