@@ -1,4 +1,4 @@
-use crate::modular::bingcd::matrix::BinXgcdMatrix;
+use crate::modular::bingcd::matrix::{BinXgcdMatrix, IntBinXgcdMatrix};
 use crate::modular::bingcd::tools::const_max;
 use crate::{ConstChoice, Int, NonZero, Odd, Uint, U128, U64};
 
@@ -37,12 +37,12 @@ impl<const LIMBS: usize> RawOddUintBinxgcdOutput<LIMBS> {
         let (lhs_div_gcd, rhs_div_gcd) = self.quotients();
         let (x, y, .., k, k_upper_bound) = self.matrix.as_elements_mut();
         if *k_upper_bound > 0 {
-            *x = x.div_2k_mod_q(
+            *x = x.bounded_div_2k_mod_q(
                 *k,
                 *k_upper_bound,
                 &rhs_div_gcd.to_odd().expect("odd by construction"),
             );
-            *y = y.div_2k_mod_q(
+            *y = y.bounded_div_2k_mod_q(
                 *k,
                 *k_upper_bound,
                 &lhs_div_gcd.to_odd().expect("odd by construction"),
@@ -115,6 +115,16 @@ impl<T: Copy, const LIMBS: usize> BaseUintBinxgcdOutput<T, LIMBS> {
         (self.lhs_on_gcd, self.rhs_on_gcd)
     }
 }
+
+/// Number of bits used by [Odd::<Uint<LIMBS>>::optimized_binxgcd] to represent a "compact" [Uint].
+const SUMMARY_BITS: u32 = U64::BITS;
+
+/// Number of limbs used to represent [Self::SUMMARY_BITS].
+const SUMMARY_LIMBS: usize = U64::LIMBS;
+
+/// Twice the number of limbs used to represent [Self::SUMMARY_BITS], i.e., two times
+/// [Self::SUMMARY_LIMBS].
+const DOUBLE_SUMMARY_LIMBS: usize = U128::LIMBS;
 
 impl<const LIMBS: usize> Odd<Uint<LIMBS>> {
     /// The minimal number of binary GCD iterations required to guarantee successful completion.
@@ -198,7 +208,7 @@ impl<const LIMBS: usize> Odd<Uint<LIMBS>> {
     /// <https://eprint.iacr.org/2020/972.pdf>.
     pub(crate) fn optimized_binxgcd(&self, rhs: &Self) -> RawOddUintBinxgcdOutput<LIMBS> {
         assert!(Self::BITS >= U128::BITS);
-        self.optimized_binxgcd_::<{ U64::BITS }, { U64::LIMBS }, { U128::LIMBS }>(rhs)
+        self.optimized_binxgcd_::<SUMMARY_BITS, SUMMARY_LIMBS, DOUBLE_SUMMARY_LIMBS>(rhs)
     }
 
     /// Given `(self, rhs)`, computes `(g, x, y)`, s.t. `self * x + rhs * y = g = gcd(self, rhs)`,
@@ -222,35 +232,68 @@ impl<const LIMBS: usize> Odd<Uint<LIMBS>> {
         rhs: &Self,
     ) -> RawOddUintBinxgcdOutput<LIMBS> {
         let (mut a, mut b) = (*self.as_ref(), *rhs.as_ref());
-        let mut matrix = BinXgcdMatrix::UNIT;
+        let mut matrix = IntBinXgcdMatrix::UNIT;
 
-        let mut a_sgn;
+        let (mut a_sgn, mut b_sgn);
         let mut i = 0;
         while i < Self::MIN_BINGCD_ITERATIONS.div_ceil(K - 1) {
+            // Loop invariants:
+            //  i) each iteration of this loop, `a.bits() + b.bits()` shrinks by at least K-1,
+            //     until `b = 0`.
+            // ii) `a` is odd.
             i += 1;
 
-            // Construct a_ and b_ as the summary of a and b, respectively.
+            // Construct compact_a and compact_b as the summary of a and b, respectively.
             let b_bits = b.bits();
             let n = const_max(2 * K, const_max(a.bits(), b_bits));
-            let a_ = a.compact::<K, LIMBS_2K>(n);
-            let b_ = b.compact::<K, LIMBS_2K>(n);
-            let b_fits_in_compact =
+            let compact_a = a.compact::<K, LIMBS_2K>(n);
+            let compact_b = b.compact::<K, LIMBS_2K>(n);
+            let b_eq_compact_b =
                 ConstChoice::from_u32_le(b_bits, K - 1).or(ConstChoice::from_u32_eq(n, 2 * K));
 
             // Compute the K-1 iteration update matrix from a_ and b_
-            let (.., update_matrix) = a_
+            let (.., update_matrix) = compact_a
                 .to_odd()
                 .expect("a is always odd")
-                .partial_binxgcd_vartime::<LIMBS_K>(&b_, K - 1, b_fits_in_compact);
+                .partial_binxgcd_vartime::<LIMBS_K>(&compact_b, K - 1, b_eq_compact_b);
 
             // Update `a` and `b` using the update matrix
-            let (updated_a, updated_b) = update_matrix.wrapping_apply_to((a, b));
-            (a, a_sgn) = updated_a.wrapping_drop_extension();
-            (b, _) = updated_b.wrapping_drop_extension();
+            let (updated_a, updated_b) = update_matrix.extended_apply_to((a, b));
+            matrix = matrix.wrapping_left_mul(&update_matrix);
 
-            matrix = update_matrix.wrapping_mul_right(&matrix);
-            matrix.conditional_negate(a_sgn); // TODO: find a cleaner solution for this
+            (a, a_sgn) = updated_a.split_drop_extension();
+            matrix.conditional_negate_top_row(a_sgn);
+
+            (b, b_sgn) = updated_b.split_drop_extension();
+            matrix.conditional_negate_bottom_row(b_sgn);
         }
+
+        // Convert the matrix to an `BinXgcdMatrix`.
+        // Recall that, at this point, b = 0. This implies that the signs of the two elements on the
+        // bottom row are not the same. Moreover, it is safe to negate both elements. We can therefore
+        // take move the IntBinxgcdMatrix into a BinXgcdMatrix.
+        let (m00, m01, m10, m11, k, k_upper_bound) = matrix.to_elements();
+        let (abs_m00, sgn_m00) = m00.abs_sign();
+        let (abs_m01, sgn_m01) = m01.abs_sign();
+        debug_assert!(abs_m00
+            .is_nonzero()
+            .not()
+            .or(abs_m01.is_nonzero().not())
+            .or(sgn_m00.ne(sgn_m01))
+            .to_bool_vartime());
+        let pattern = abs_m00
+            .is_nonzero()
+            .and(sgn_m00.not())
+            .or(abs_m01.is_nonzero().and(sgn_m01));
+        let matrix = BinXgcdMatrix::new(
+            abs_m00,
+            abs_m01,
+            m10.abs(),
+            m11.abs(),
+            pattern,
+            k,
+            k_upper_bound,
+        );
 
         let gcd = a
             .to_odd()
@@ -575,9 +618,9 @@ mod tests {
             assert_eq!(new_a, target_a);
             assert_eq!(new_b, target_b);
 
-            let (computed_a, computed_b) = matrix.wrapping_apply_to((A.get(), B));
-            let computed_a = computed_a.wrapping_drop_extension().0;
-            let computed_b = computed_b.wrapping_drop_extension().0;
+            let (computed_a, computed_b) = matrix.extended_apply_to((A.get(), B));
+            let computed_a = computed_a.split_drop_extension().0;
+            let computed_b = computed_b.split_drop_extension().0;
 
             assert_eq!(computed_a, target_a);
             assert_eq!(computed_b, target_b);
@@ -628,6 +671,9 @@ mod tests {
         assert_eq!(
             x.widening_mul_uint(&lhs) + y.widening_mul_uint(&rhs),
             output.gcd.resize().as_int(),
+            "{:?}\n{:?}",
+            lhs,
+            rhs
         );
 
         // Test the Bezout coefficients for minimality
@@ -654,7 +700,7 @@ mod tests {
         #[cfg(feature = "rand_core")]
         use super::make_rng;
         #[cfg(feature = "rand_core")]
-        use crate::Random;
+        use crate::RandomMod;
 
         fn binxgcd_nz_test<const LIMBS: usize, const DOUBLE: usize>(
             lhs: Uint<LIMBS>,
@@ -674,9 +720,10 @@ mod tests {
                 Gcd<Output = Uint<LIMBS>> + ConcatMixed<Uint<LIMBS>, MixedOutput = Uint<DOUBLE>>,
         {
             let mut rng = make_rng();
+            let bound = Int::MIN.abs().to_nz().unwrap();
             for _ in 0..iterations {
-                let x = Uint::random(&mut rng).bitor(&Uint::ONE);
-                let y = Uint::random(&mut rng).saturating_add(&Uint::ONE);
+                let x = Uint::random_mod(&mut rng, &bound).bitor(&Uint::ONE);
+                let y = Uint::random_mod(&mut rng, &bound).saturating_add(&Uint::ONE);
                 binxgcd_nz_test(x, y);
             }
         }
@@ -786,16 +833,17 @@ mod tests {
     }
 
     mod test_optimized_binxgcd {
-        use crate::modular::bingcd::xgcd::tests::test_xgcd;
-        use crate::{
-            ConcatMixed, Gcd, Int, Uint, U1024, U128, U192, U2048, U256, U384, U4096, U512, U768,
-            U8192,
-        };
-
         #[cfg(feature = "rand_core")]
         use super::make_rng;
         #[cfg(feature = "rand_core")]
-        use crate::Random;
+        use crate::RandomMod;
+
+        use crate::modular::bingcd::xgcd::tests::test_xgcd;
+        use crate::modular::bingcd::xgcd::{DOUBLE_SUMMARY_LIMBS, SUMMARY_BITS, SUMMARY_LIMBS};
+        use crate::{
+            ConcatMixed, Gcd, Int, Uint, U1024, U128, U192, U2048, U256, U384, U4096, U512, U64,
+            U768, U8192,
+        };
 
         fn optimized_binxgcd_test<const LIMBS: usize, const DOUBLE: usize>(
             lhs: Uint<LIMBS>,
@@ -819,9 +867,10 @@ mod tests {
                 Gcd<Output = Uint<LIMBS>> + ConcatMixed<Uint<LIMBS>, MixedOutput = Uint<DOUBLE>>,
         {
             let mut rng = make_rng();
+            let bound = Int::MIN.abs().to_nz().unwrap();
             for _ in 0..iterations {
-                let x = Uint::<LIMBS>::random(&mut rng).bitor(&Uint::ONE);
-                let y = Uint::<LIMBS>::random(&mut rng).bitor(&Uint::ONE);
+                let x = Uint::<LIMBS>::random_mod(&mut rng, &bound).bitor(&Uint::ONE);
+                let y = Uint::<LIMBS>::random_mod(&mut rng, &bound).bitor(&Uint::ONE);
                 optimized_binxgcd_test(x, y);
             }
         }
@@ -840,6 +889,50 @@ mod tests {
 
             #[cfg(feature = "rand_core")]
             optimized_binxgcd_randomized_tests(100);
+        }
+
+        #[test]
+        fn test_optimized_binxgcd_edge_cases() {
+            // If one of these tests fails, you have probably tweaked the SUMMARY_BITS,
+            // SUMMARY_LIMBS or DOUBLE_SUMMARY_LIMBS settings. Please make sure to update these
+            // tests accordingly.
+            assert_eq!(SUMMARY_BITS, 64);
+            assert_eq!(SUMMARY_LIMBS, U64::LIMBS);
+            assert_eq!(DOUBLE_SUMMARY_LIMBS, U128::LIMBS);
+
+            // Case #1: a > b but a.compact() < b.compact()
+            let a = U256::from_be_hex(
+                "1234567890ABCDEF80000000000000000000000000000000BEDCBA0987654321",
+            );
+            let b = U256::from_be_hex(
+                "1234567890ABCDEF800000000000000000000000000000007EDCBA0987654321",
+            );
+            assert!(a > b);
+            assert!(
+                a.compact::<SUMMARY_BITS, DOUBLE_SUMMARY_LIMBS>(U256::BITS)
+                    < b.compact::<SUMMARY_BITS, DOUBLE_SUMMARY_LIMBS>(U256::BITS)
+            );
+            optimized_binxgcd_test(a, b);
+
+            // Case #2: a < b but a.compact() > b.compact()
+            optimized_binxgcd_test(b, a);
+
+            // Case #3: a > b but a.compact() = b.compact()
+            let a = U256::from_be_hex(
+                "1234567890ABCDEF80000000000000000000000000000000FEDCBA0987654321",
+            );
+            let b = U256::from_be_hex(
+                "1234567890ABCDEF800000000000000000000000000000007EDCBA0987654321",
+            );
+            assert!(a > b);
+            assert_eq!(
+                a.compact::<SUMMARY_BITS, DOUBLE_SUMMARY_LIMBS>(U256::BITS),
+                b.compact::<SUMMARY_BITS, DOUBLE_SUMMARY_LIMBS>(U256::BITS)
+            );
+            optimized_binxgcd_test(a, b);
+
+            // Case #4: a < b but a.compact() = b.compact()
+            optimized_binxgcd_test(b, a);
         }
 
         #[test]

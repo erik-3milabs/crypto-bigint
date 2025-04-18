@@ -1,4 +1,4 @@
-use crate::{ConstChoice, Limb, Uint};
+use crate::{ConstChoice, Int, Limb, Uint};
 
 pub(crate) struct ExtendedUint<const LIMBS: usize, const EXTENSION_LIMBS: usize>(
     Uint<LIMBS>,
@@ -75,12 +75,19 @@ pub(crate) struct ExtendedInt<const LIMBS: usize, const EXTENSION_LIMBS: usize>(
 );
 
 impl<const LIMBS: usize, const EXTRA: usize> ExtendedInt<LIMBS, EXTRA> {
-    /// Construct an [ExtendedInt] from the product of a [Uint<LIMBS>] and an [Int<EXTRA>].
-    ///
-    /// Assumes the top bit of the product is not set.
+    /// Construct an [ExtendedInt] from the product of a [Uint<LIMBS>] and a [Uint<EXTRA>].
     #[inline]
-    pub const fn from_product(lhs: Uint<LIMBS>, rhs: Uint<EXTRA>) -> Self {
+    pub const fn from_unsigned_product(lhs: Uint<LIMBS>, rhs: Uint<EXTRA>) -> Self {
         ExtendedUint::from_product(lhs, rhs).as_extended_int()
+    }
+
+    /// Construct an [ExtendedInt] from the product of an [Int<LIMBS>] and an [Uint<EXTRA>].
+    #[inline]
+    pub const fn from_product(lhs: Int<LIMBS>, rhs: Uint<EXTRA>) -> Self {
+        let (abs_lhs, sgn_lhs) = lhs.abs_sign();
+        ExtendedUint::from_product(abs_lhs, rhs)
+            .as_extended_int()
+            .wrapping_neg_if(sgn_lhs)
     }
 
     /// Interpret this as an [ExtendedUint].
@@ -105,11 +112,18 @@ impl<const LIMBS: usize, const EXTRA: usize> ExtendedInt<LIMBS, EXTRA> {
         Self(lo, hi)
     }
 
-    /// Returns self without the extension.
+    /// Returns the absolute value of the base element and the sign of the extended value.
     #[inline]
-    pub const fn wrapping_drop_extension(&self) -> (Uint<LIMBS>, ConstChoice) {
+    pub const fn split_drop_extension(&self) -> (Uint<LIMBS>, ConstChoice) {
         let (abs, sgn) = self.abs_sgn();
         (abs.0, sgn)
+    }
+
+    // TODO: find a better way to do this.
+    #[inline]
+    pub const fn wrapping_drop_extension(&self) -> Int<LIMBS> {
+        let (abs, sgn) = self.abs_sgn();
+        abs.0.wrapping_neg_if(sgn).as_int()
     }
 
     /// Decompose `self` into is absolute value and signum.

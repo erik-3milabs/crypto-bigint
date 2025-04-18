@@ -1,5 +1,5 @@
 use crate::modular::bingcd::extension::ExtendedInt;
-use crate::{ConstChoice, Uint};
+use crate::{ConstChoice, Int, Uint};
 
 type Vector<T> = (T, T);
 
@@ -105,52 +105,22 @@ impl<const LIMBS: usize> BinXgcdMatrix<LIMBS> {
     /// Apply this matrix to a vector of [Uint]s, returning the result as a vector of
     /// [ExtendedInt]s.
     #[inline]
-    pub(crate) fn wrapping_apply_to<const VEC_LIMBS: usize>(
+    pub(crate) fn extended_apply_to<const VEC_LIMBS: usize>(
         &self,
         vec: Vector<Uint<VEC_LIMBS>>,
     ) -> Vector<ExtendedInt<VEC_LIMBS, LIMBS>> {
         let (a, b) = vec;
-        let a0 = ExtendedInt::from_product(a, self.m00);
-        let a1 = ExtendedInt::from_product(a, self.m10);
-        let b0 = ExtendedInt::from_product(b, self.m01);
-        let b1 = ExtendedInt::from_product(b, self.m11);
+        let m00a = ExtendedInt::from_unsigned_product(a, self.m00);
+        let m10a = ExtendedInt::from_unsigned_product(a, self.m10);
+        let m01b = ExtendedInt::from_unsigned_product(b, self.m01);
+        let m11b = ExtendedInt::from_unsigned_product(b, self.m11);
         (
-            a0.wrapping_sub(&b0)
+            m00a.wrapping_sub(&m01b)
                 .div_2k(self.k)
                 .wrapping_neg_if(self.pattern.not()),
-            a1.wrapping_sub(&b1)
+            m11b.wrapping_sub(&m10a)
                 .div_2k(self.k)
                 .wrapping_neg_if(self.pattern.not()),
-        )
-    }
-
-    /// Wrapping apply this matrix to `rhs`. Return the result in `RHS_LIMBS`.
-    #[inline]
-    pub(crate) fn wrapping_mul_right<const RHS_LIMBS: usize>(
-        &self,
-        rhs: &BinXgcdMatrix<RHS_LIMBS>,
-    ) -> BinXgcdMatrix<RHS_LIMBS> {
-        let a0 = rhs.m00.wrapping_mul(&self.m00);
-        let a1 = rhs.m10.wrapping_mul(&self.m01);
-        let a = a0.wrapping_add(&a1);
-        let b0 = rhs.m01.wrapping_mul(&self.m00);
-        let b1 = rhs.m11.wrapping_mul(&self.m01);
-        let b = b0.wrapping_add(&b1);
-        let c0 = rhs.m00.wrapping_mul(&self.m10);
-        let c1 = rhs.m10.wrapping_mul(&self.m11);
-        let c = c0.wrapping_add(&c1);
-        let d0 = rhs.m01.wrapping_mul(&self.m10);
-        let d1 = rhs.m11.wrapping_mul(&self.m11);
-        let d = d0.wrapping_add(&d1);
-
-        BinXgcdMatrix::new(
-            a,
-            b,
-            c,
-            d,
-            self.pattern.eq(rhs.pattern),
-            self.k + rhs.k,
-            self.k_upper_bound + rhs.k_upper_bound,
         )
     }
 
@@ -213,6 +183,102 @@ impl<const LIMBS: usize> BinXgcdMatrix<LIMBS> {
     }
 }
 
+/// Variation of [BinXgcdMatrix] that operates on [IntUintMix]s instead of [Uint]s
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub(crate) struct IntBinXgcdMatrix<const LIMBS: usize> {
+    m00: Int<LIMBS>,
+    m01: Int<LIMBS>,
+    m10: Int<LIMBS>,
+    m11: Int<LIMBS>,
+    k: u32,
+    k_upper_bound: u32,
+}
+
+impl<const LIMBS: usize> IntBinXgcdMatrix<LIMBS> {
+    pub(crate) const UNIT: Self = Self::new(Int::ONE, Int::ZERO, Int::ZERO, Int::ONE, 0, 0);
+
+    pub(crate) const fn new(
+        m00: Int<LIMBS>,
+        m01: Int<LIMBS>,
+        m10: Int<LIMBS>,
+        m11: Int<LIMBS>,
+        k: u32,
+        k_upper_bound: u32,
+    ) -> Self {
+        Self {
+            m00,
+            m01,
+            m10,
+            m11,
+            k,
+            k_upper_bound,
+        }
+    }
+
+    pub(crate) const fn to_elements(
+        self,
+    ) -> (Int<LIMBS>, Int<LIMBS>, Int<LIMBS>, Int<LIMBS>, u32, u32) {
+        (
+            self.m00,
+            self.m01,
+            self.m10,
+            self.m11,
+            self.k,
+            self.k_upper_bound,
+        )
+    }
+
+    /// Wrapping left multiply this matrix with `lhs`.
+    ///
+    /// If `last_round` is set, ignore the signs of the bottom row elements.
+    #[inline]
+    pub(crate) const fn wrapping_left_mul<const LHS_LIMBS: usize>(
+        &self,
+        lhs: &BinXgcdMatrix<LHS_LIMBS>,
+    ) -> Self {
+        let a = ExtendedInt::from_product(self.m00, lhs.m00)
+            .wrapping_sub(&ExtendedInt::from_product(self.m10, lhs.m01))
+            .wrapping_neg_if(lhs.pattern.not())
+            .wrapping_drop_extension();
+
+        let b = ExtendedInt::from_product(self.m01, lhs.m00)
+            .wrapping_sub(&ExtendedInt::from_product(self.m11, lhs.m01))
+            .wrapping_neg_if(lhs.pattern.not())
+            .wrapping_drop_extension();
+
+        let c = ExtendedInt::from_product(self.m10, lhs.m11)
+            .wrapping_sub(&ExtendedInt::from_product(self.m00, lhs.m10))
+            .wrapping_neg_if(lhs.pattern.not())
+            .wrapping_drop_extension();
+
+        let d = ExtendedInt::from_product(self.m11, lhs.m11)
+            .wrapping_sub(&ExtendedInt::from_product(self.m01, lhs.m10))
+            .wrapping_neg_if(lhs.pattern.not())
+            .wrapping_drop_extension();
+
+        Self {
+            m00: a,
+            m01: b,
+            m10: c,
+            m11: d,
+            k: self.k + lhs.k,
+            k_upper_bound: self.k_upper_bound + lhs.k_upper_bound,
+        }
+    }
+
+    /// Negate the top row of the matrix if `negate` is truthy. Otherwise, do nothing.
+    pub(crate) fn conditional_negate_top_row(&mut self, negate: ConstChoice) {
+        self.m00 = self.m00.wrapping_neg_if(negate);
+        self.m01 = self.m01.wrapping_neg_if(negate);
+    }
+
+    /// Negate the bottom row of the matrix if `negate` is truthy. Otherwise, do nothing.
+    pub(crate) fn conditional_negate_bottom_row(&mut self, negate: ConstChoice) {
+        self.m10 = self.m10.wrapping_neg_if(negate);
+        self.m11 = self.m11.wrapping_neg_if(negate);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::modular::bingcd::matrix::BinXgcdMatrix;
@@ -242,13 +308,13 @@ mod tests {
             k_upper_bound: 17,
         };
 
-        let (a_, b_) = matrix.wrapping_apply_to((a, b));
+        let (a_, b_) = matrix.extended_apply_to((a, b));
         assert_eq!(
-            a_.wrapping_drop_extension().0,
+            a_.split_drop_extension().0,
             Uint::from_be_hex("002AC7CDD032B9B9")
         );
         assert_eq!(
-            b_.wrapping_drop_extension().0,
+            b_.split_drop_extension().0,
             Uint::from_be_hex("006CFBCEE172C863")
         );
     }
@@ -380,22 +446,5 @@ mod tests {
                 4
             )
         );
-    }
-
-    #[test]
-    fn test_wrapping_mul() {
-        let res = X.wrapping_mul_right(&X);
-        assert_eq!(
-            res,
-            BinXgcdMatrix::new(
-                U256::from(162u64),
-                U256::from(378u64),
-                U256::from(1242u64),
-                U256::from(2970u64),
-                ConstChoice::TRUE,
-                2,
-                4
-            )
-        )
     }
 }
