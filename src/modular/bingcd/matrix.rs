@@ -124,36 +124,6 @@ impl<const LIMBS: usize> BinXgcdMatrix<LIMBS> {
         )
     }
 
-    /// Wrapping apply this matrix to `rhs`. Return the result in `RHS_LIMBS`.
-    #[inline]
-    pub(crate) fn wrapping_mul_right<const RHS_LIMBS: usize>(
-        &self,
-        rhs: &BinXgcdMatrix<RHS_LIMBS>,
-    ) -> BinXgcdMatrix<RHS_LIMBS> {
-        let a0 = rhs.m00.wrapping_mul(&self.m00);
-        let a1 = rhs.m10.wrapping_mul(&self.m01);
-        let a = a0.wrapping_add(&a1);
-        let b0 = rhs.m01.wrapping_mul(&self.m00);
-        let b1 = rhs.m11.wrapping_mul(&self.m01);
-        let b = b0.wrapping_add(&b1);
-        let c0 = rhs.m00.wrapping_mul(&self.m10);
-        let c1 = rhs.m10.wrapping_mul(&self.m11);
-        let c = c0.wrapping_add(&c1);
-        let d0 = rhs.m01.wrapping_mul(&self.m10);
-        let d1 = rhs.m11.wrapping_mul(&self.m11);
-        let d = d0.wrapping_add(&d1);
-
-        BinXgcdMatrix::new(
-            a,
-            b,
-            c,
-            d,
-            self.pattern.eq(rhs.pattern),
-            self.k + rhs.k,
-            self.k_upper_bound + rhs.k_upper_bound,
-        )
-    }
-
     /// Swap the rows of this matrix if `swap` is truthy. Otherwise, do nothing.
     #[inline]
     pub(crate) fn conditional_swap_rows(&mut self, swap: ConstChoice) {
@@ -476,22 +446,5 @@ mod tests {
                 4
             )
         );
-    }
-
-    #[test]
-    fn test_wrapping_mul() {
-        let res = X.wrapping_mul_right(&X);
-        assert_eq!(
-            res,
-            BinXgcdMatrix::new(
-                U256::from(162u64),
-                U256::from(378u64),
-                U256::from(1242u64),
-                U256::from(2970u64),
-                ConstChoice::TRUE,
-                2,
-                4
-            )
-        )
     }
 }
