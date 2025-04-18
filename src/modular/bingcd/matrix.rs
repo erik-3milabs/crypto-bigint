@@ -284,7 +284,7 @@ impl<const LIMBS: usize> IntBinXgcdMatrix<LIMBS> {
     }
 
     pub(crate) const fn to_elements(
-        &self,
+        self,
     ) -> (Int<LIMBS>, Int<LIMBS>, Int<LIMBS>, Int<LIMBS>, u32, u32) {
         (
             self.m00,
@@ -335,13 +335,13 @@ impl<const LIMBS: usize> IntBinXgcdMatrix<LIMBS> {
     }
 
     /// Negate the top row of the matrix if `negate` is truthy. Otherwise, do nothing.
-    pub(crate) const fn conditional_negate_top_row(&mut self, negate: ConstChoice) {
+    pub(crate) fn conditional_negate_top_row(&mut self, negate: ConstChoice) {
         self.m00 = self.m00.wrapping_neg_if(negate);
         self.m01 = self.m01.wrapping_neg_if(negate);
     }
 
     /// Negate the bottom row of the matrix if `negate` is truthy. Otherwise, do nothing.
-    pub(crate) const fn conditional_negate_bottom_row(&mut self, negate: ConstChoice) {
+    pub(crate) fn conditional_negate_bottom_row(&mut self, negate: ConstChoice) {
         self.m10 = self.m10.wrapping_neg_if(negate);
         self.m11 = self.m11.wrapping_neg_if(negate);
     }
