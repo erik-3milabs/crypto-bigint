@@ -550,7 +550,7 @@ mod tests {
         fn test_pxgcd_randomized_large() {
             let threshold = 512;
 
-            let (a, b) = (U1024::MAX, U1024::ONE.shl(750));
+            let (a, b) = (U1024::MAX.shr1(), U1024::ONE.shl(750));
             let (partial_a, partial_b, matrix, ..) = a.partial_xgcd_randomized(&b, threshold);
 
             assert!(partial_a.bits() <= threshold);
