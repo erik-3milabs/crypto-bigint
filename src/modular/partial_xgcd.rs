@@ -156,7 +156,10 @@ impl<const LIMBS: usize> Uint<LIMBS> {
     /// XGCD reduce `self` and `rhs` until both can be represented with `threshold` bits.
     ///
     /// Requires that the most significant bit of `self` and `rhs` is NOT set.
-    pub fn fast_partial_xgcd(
+    ///
+    /// Assumes `self` and `rhs` to be random elements, i.e., at no point in the process will `a`
+    /// and `b` differ more than 63 bits in size.
+    pub fn partial_xgcd_randomized(
         &self,
         rhs: &Uint<LIMBS>,
         threshold: u32,
@@ -448,7 +451,7 @@ mod tests {
         }
     }
 
-    mod test_fast_pxgcd {
+    mod test_pxgcd_randomized {
         use crate::modular::partial_xgcd::tests::Vector;
         use crate::{Concat, ConstChoice, PxgcdMatrix, Uint, U1024, U64};
         use core::ops::Sub;
@@ -468,37 +471,37 @@ mod tests {
             assert_eq!(matrix.wrapping_apply(input), output)
         }
 
-        fn fast_pxgcd_test<const LIMBS: usize, const DOUBLE: usize>(
+        fn pxgcd_randomized_test<const LIMBS: usize, const DOUBLE: usize>(
             input: Vector<LIMBS>,
             threshold: u32,
         ) where
             Uint<LIMBS>: Concat<Output = Uint<DOUBLE>>,
         {
             let (a, b) = input;
-            let (res_a, res_b, matrix, iterations) = a.fast_partial_xgcd(&b, threshold);
+            let (res_a, res_b, matrix, iterations) = a.partial_xgcd_randomized(&b, threshold);
             test_fast_partial_xgcd_output((a, b), threshold, (res_a, res_b), matrix);
             assert!(iterations < (Uint::<LIMBS>::BITS - threshold) * 5 / 2);
         }
 
         #[test]
-        fn test_fast_pxgcd_unit() {
-            let (a, b, matrix, ..) = U64::ONE.fast_partial_xgcd(&U64::ZERO, 1);
+        fn test_pxgcd_randomized_unit() {
+            let (a, b, matrix, ..) = U64::ONE.partial_xgcd_randomized(&U64::ZERO, 1);
             assert_eq!(a, U64::ONE);
             assert_eq!(b, U64::ZERO);
             assert_eq!(matrix, PxgcdMatrix::UNIT);
         }
 
         #[test]
-        fn test_fast_pxgcd_unit_swapped() {
-            let (a, b, matrix, ..) = U64::ZERO.fast_partial_xgcd(&U64::ONE, 1);
+        fn test_pxgcd_randomized_unit_swapped() {
+            let (a, b, matrix, ..) = U64::ZERO.partial_xgcd_randomized(&U64::ONE, 1);
             assert_eq!(a, U64::ZERO);
             assert_eq!(b, U64::ONE);
             assert_eq!(matrix, PxgcdMatrix::UNIT);
         }
 
         #[test]
-        fn test_fast_pxgcd_non_unitary_elements() {
-            let (a, b, matrix, ..) = U64::from(2u64).fast_partial_xgcd(&U64::ONE, 1);
+        fn test_pxgcd_randomized_non_unitary_elements() {
+            let (a, b, matrix, ..) = U64::from(2u64).partial_xgcd_randomized(&U64::ONE, 1);
             assert_eq!(a, U64::ZERO);
             assert_eq!(b, U64::ONE);
             assert_eq!(
@@ -514,16 +517,16 @@ mod tests {
         }
 
         #[test]
-        fn test_fast_pxgcd_zero() {
+        fn test_pxgcd_randomized_zero() {
             let threshold = 6;
 
             let (a, b) = (U64::from(554u64), U64::ZERO);
-            let (partial_a, partial_b, matrix, ..) = a.fast_partial_xgcd(&b, threshold);
+            let (partial_a, partial_b, matrix, ..) = a.partial_xgcd_randomized(&b, threshold);
             assert_eq!(partial_a, U64::from(554u64));
             assert_eq!(partial_b, U64::ZERO);
             assert_eq!(matrix.wrapping_apply((a, b)), (partial_a, partial_b));
 
-            let (partial_a, partial_b, matrix, ..) = b.fast_partial_xgcd(&a, threshold);
+            let (partial_a, partial_b, matrix, ..) = b.partial_xgcd_randomized(&a, threshold);
 
             assert_eq!(partial_a, U64::ZERO);
             assert_eq!(partial_b, U64::from(554u64));
@@ -531,11 +534,11 @@ mod tests {
         }
 
         #[test]
-        fn test_fast_pxgcd() {
+        fn test_pxgcd_randomized() {
             let threshold = 6;
 
             let (a, b) = (U64::from(554u64), U64::from(3321u64));
-            let (partial_a, partial_b, matrix, ..) = a.fast_partial_xgcd(&b, threshold);
+            let (partial_a, partial_b, matrix, ..) = a.partial_xgcd_randomized(&b, threshold);
 
             assert_eq!(partial_a, U64::from(3u64));
             assert_eq!(partial_b, U64::from(23u64));
@@ -544,11 +547,11 @@ mod tests {
         }
 
         #[test]
-        fn test_fast_pxgcd_large() {
+        fn test_pxgcd_randomized_large() {
             let threshold = 512;
 
             let (a, b) = (U1024::MAX, U1024::ONE.shl(750));
-            let (partial_a, partial_b, matrix, ..) = a.fast_partial_xgcd(&b, threshold);
+            let (partial_a, partial_b, matrix, ..) = a.partial_xgcd_randomized(&b, threshold);
 
             assert!(partial_a.bits() <= threshold);
             assert!(partial_b.bits() <= threshold);
@@ -557,10 +560,10 @@ mod tests {
         }
 
         #[test]
-        fn test_fast_pxgcd_no_threshold_underflow() {
+        fn test_pxgcd_randomized_no_threshold_underflow() {
             let threshold = 700;
             let (a, b) = (U64::ONE, U64::ZERO);
-            let (partial_a, partial_b, matrix, ..) = a.fast_partial_xgcd(&b, threshold);
+            let (partial_a, partial_b, matrix, ..) = a.partial_xgcd_randomized(&b, threshold);
 
             assert!(partial_a.bits() <= threshold);
             assert!(partial_b.bits() <= threshold);
@@ -569,12 +572,12 @@ mod tests {
         }
 
         #[test]
-        fn test_fast_pxgcd_edge_case() {
+        fn test_pxgcd_randomized_edge_case() {
             // Case a = b + 1
             let a = U64::MAX.shr1();
             let b = a.sub(Uint::ONE);
             let threshold = 32;
-            fast_pxgcd_test((a, b), threshold);
+            pxgcd_randomized_test((a, b), threshold);
         }
     }
 }
