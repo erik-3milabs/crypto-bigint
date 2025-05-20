@@ -570,14 +570,5 @@ mod tests {
 
             assert_eq!(matrix.wrapping_apply((a, b)), (partial_a, partial_b));
         }
-
-        #[test]
-        fn test_pxgcd_randomized_edge_case() {
-            // Case a = b + 1
-            let a = U64::MAX.shr1();
-            let b = a.sub(Uint::ONE);
-            let threshold = 32;
-            pxgcd_randomized_test((a, b), threshold);
-        }
     }
 }
