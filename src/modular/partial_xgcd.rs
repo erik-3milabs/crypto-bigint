@@ -182,21 +182,18 @@ impl<const LIMBS: usize> Uint<LIMBS> {
 
         let mut iterations = 0;
         while a.bits() > threshold && b != Uint::ZERO {
-            let double_c = c.shl_vartime(1);
-            let half_c = c.shr_vartime(1);
             let (a_sub_c, borrow) = a.sbb(&c, Limb::ZERO);
+            let c_lte_a = ConstChoice::from_word_mask(borrow.0).not();
 
-            if double_c <= a {
-                c = double_c;
-                k = k.saturating_add(1);
-            } else {
-                let no_underflow = ConstChoice::from_word_mask(borrow.0).not();
-                a = Uint::select(&a, &a_sub_c, no_underflow);
-                matrix.conditional_subtract_bottom_row_2k_times_from_top_row(k, no_underflow);
+            let double_c = c.shl_vartime(1);
+            let double_c_lte_a = Uint::lte(&double_c, &a);
 
-                c = half_c;
-                k = k.saturating_sub(1);
-            }
+            let subtract_c_from_a = c_lte_a.and(double_c_lte_a.not());
+            a = Uint::select(&a, &a_sub_c, subtract_c_from_a);
+            matrix.conditional_subtract_bottom_row_2k_times_from_top_row(k, subtract_c_from_a);
+
+            c = Uint::select(&c.shr_vartime(1), &double_c, double_c_lte_a);
+            k = double_c_lte_a.select_u32(k.saturating_sub(1), k.saturating_add(1));
 
             if c < b {
                 assert_eq!(k, 0);
