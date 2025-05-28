@@ -1,4 +1,5 @@
 use crate::{ConstChoice, Limb, Uint};
+use core::ops::Mul;
 use num_traits::Zero;
 
 /// The matrix representation used in the partial extended gcd algorithm.
@@ -243,31 +244,40 @@ impl<const LIMBS: usize> Uint<LIMBS> {
         let mut c = b.shl(k);
         matrix.double_bottom_row_k_times(k);
 
-        let mut iterations = 0;
-        while a.bits() > threshold && b != Uint::ZERO {
+        let iterations = upper_bound.saturating_sub(threshold).mul(12).div_ceil(5);
+        for _ in 0..iterations {
+            // Only perform an action when ||a|| > threshold and b ≠ 0.
+            let alive = ConstChoice::from_u32_lt(threshold, a.bits()).and(b.is_nonzero());
+
             let (a_sub_c, borrow) = a.sbb(&c, Limb::ZERO);
             let c_lte_a = ConstChoice::from_word_mask(borrow.0).not();
 
             let (double_c, _) = c.overflowing_shl1();
             let double_c_lte_a = Uint::lte(&double_c, &a);
 
-            let subtract_c_from_a = c_lte_a.and(double_c_lte_a.not());
+            // Subtract c from a when a ∈ [c, 2c)
+            let subtract_c_from_a = c_lte_a.and(double_c_lte_a.not()).and(alive);
             a = Uint::select(&a, &a_sub_c, subtract_c_from_a);
             matrix.conditional_subtract_bottom_row_from_top_row(subtract_c_from_a);
 
+            // set c to be either c/2 or 2c.
             c = Uint::select(&c.shr1(), &double_c, double_c_lte_a);
-            k = double_c_lte_a.select_u32(k.saturating_sub(1), k.saturating_add(1));
-            matrix.double_bottom_row_if(double_c_lte_a);
+
+            // Update k and the matrix
+            k = alive.select_u32(
+                k,
+                double_c_lte_a.select_u32(k.saturating_sub(1), k.saturating_add(1)),
+            );
+            matrix.double_bottom_row_if(double_c_lte_a.and(alive));
 
             let c_lt_b = Uint::lt(&c, &b);
-            matrix.half_bottom_row_if(c_lt_b.not().and(double_c_lte_a.not()));
+            matrix.half_bottom_row_if(c_lt_b.not().and(double_c_lte_a.not()).and(alive));
 
+            // swap a and b
             debug_assert!(c_lt_b.not().to_bool_vartime() || k.is_zero());
-            Uint::conditional_swap(&mut a, &mut b, c_lt_b);
-            matrix.swap_rows_if(c_lt_b);
-            c = Uint::select(&c, &b, c_lt_b);
-
-            iterations += 1;
+            Uint::conditional_swap(&mut a, &mut b, c_lt_b.and(alive));
+            matrix.swap_rows_if(c_lt_b.and(alive));
+            c = Uint::select(&c, &b, c_lt_b.and(alive));
         }
         matrix.half_bottom_row_k_times(k);
 
