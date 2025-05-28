@@ -1,3 +1,4 @@
+use num_traits::Zero;
 use crate::{ConstChoice, Limb, Uint};
 
 /// The matrix representation used in the partial extended gcd algorithm.
@@ -195,13 +196,12 @@ impl<const LIMBS: usize> Uint<LIMBS> {
             c = Uint::select(&c.shr_vartime(1), &double_c, double_c_lte_a);
             k = double_c_lte_a.select_u32(k.saturating_sub(1), k.saturating_add(1));
 
-            if c < b {
-                assert_eq!(k, 0);
-                Self::swap(&mut a, &mut b);
-                matrix.swap_rows_if(ConstChoice::TRUE);
-                c = b;
-                k = 0;
-            }
+            let c_lt_b = Uint::lt(&c, &b);
+            assert!(c_lt_b.not().to_bool_vartime() || k.is_zero());
+            Uint::conditional_swap(&mut a, &mut b, c_lt_b);
+            matrix.swap_rows_if(c_lt_b);
+            c = Uint::select(&c, &b, c_lt_b);
+            k = c_lt_b.select_u32(k, 0);
 
             iterations += 1;
         }
