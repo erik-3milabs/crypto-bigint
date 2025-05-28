@@ -567,7 +567,18 @@ mod tests {
         fn test_pxgcd_randomized_large() {
             let threshold = 512;
 
-            let (a, b) = (U1024::MAX.shr1(), U1024::ONE.shl(750));
+            let a = U1024::from_be_hex(concat![
+                "5DD7D2A26628253140D3B3FF6FB58D90EDD2453E349B10D2126E45E496BC77FA",
+                "2B57C249D4E9ADACE90489C9CC7CBDC4398B9789BCD953CD035918578C935420",
+                "4363C09A549AC89C1B9228B0D3E916EC48DDDD9907C21931634EF8389C62942A",
+                "46968524A431F19DF85D5CDCAF372359E039DE505DD0DD2AD30F609C85C5DFA1"
+            ]);
+            let b = U1024::from_be_hex(concat![
+                "6A4DD9B62DB7A17E9A7A90F436EFD05019AB3D1153C5FD49040A3AE98B42C505",
+                "2172F081D126E34615B1B793CB6C023B7B75B264164483CEB717F22A4DA641D2",
+                "4BC370207E0707ABC3945F08E3F2F1354BE3F5F84165EFEBF4DCB27C359CC83A",
+                "1F82699B459EEFCF2777DED206EFEC05C8F27522DDE036CDB3611D4290416BEA"
+            ]);
             let (partial_a, partial_b, matrix, ..) = a.partial_xgcd_randomized(&b, threshold);
 
             assert!(partial_a.bits() <= threshold);
