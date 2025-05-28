@@ -1,5 +1,6 @@
+use crate::{CheckedSub, ConstChoice, Limb, Uint};
+use core::ops::{Div, Mul, Sub};
 use num_traits::Zero;
-use crate::{ConstChoice, Limb, Uint};
 
 /// The matrix representation used in the partial extended gcd algorithm.
 ///
@@ -81,6 +82,57 @@ impl<const LIMBS: usize> PxgcdMatrix<LIMBS> {
         // of how the sign-information of this matrix is stored in `pattern`.
         self.m00 = Uint::select(&self.m00, &self.m00.wrapping_add(&self.m10.shl(k)), sub);
         self.m01 = Uint::select(&self.m01, &self.m01.wrapping_add(&self.m11.shl(k)), sub);
+    }
+
+    /// Subtract the bottom row of this matrix from the top row if `sub` is set.
+    /// Otherwise, do nothing.
+    ///
+    /// Note: this operation preserves the fact that `det(self) = +/-1`.
+    #[inline]
+    fn conditional_subtract_bottom_row_from_top_row(&mut self, sub: ConstChoice) {
+        // Note: these are additions (and not subtractions like the function name suggests) because
+        // of how the sign-information of this matrix is stored in `pattern`.
+        self.m00 = Uint::select(&self.m00, &self.m00.wrapping_add(&self.m10), sub);
+        self.m01 = Uint::select(&self.m01, &self.m01.wrapping_add(&self.m11), sub);
+    }
+
+    /// Multiply the bottom row by `2^k`.
+    ///
+    /// Note: this operation preserves the fact that `det(self) = +/-1`.
+    #[inline]
+    fn double_bottom_row_k_times(&mut self, k: u32) {
+        self.m10 = self.m10.wrapping_shl(k);
+        self.m11 = self.m11.wrapping_shl(k);
+    }
+
+    /// Divide the values in the bottom row by `2^k`.
+    ///
+    /// Note: this operation preserves the fact that `det(self) = +/-1`.
+    #[inline]
+    fn half_bottom_row_k_times(&mut self, k: u32) {
+        // Safe to vartime; is variable only in the shift, which is a constant
+        self.m10 = self.m10.wrapping_shr(k);
+        self.m11 = self.m11.wrapping_shr(k);
+    }
+
+    /// Double the values in the bottom row if `double`, else do nothing
+    ///
+    /// Note: this operation preserves the fact that `det(self) = +/-1`.
+    #[inline]
+    fn double_bottom_row_if(&mut self, double: ConstChoice) {
+        // Safe to vartime; is variable only in the shift, which is a constant
+        self.m10 = Uint::select(&self.m10, &self.m10.overflowing_shl1().0, double);
+        self.m11 = Uint::select(&self.m11, &self.m11.overflowing_shl1().0, double);
+    }
+
+    /// Divide the values in the bottom row by two if `half`, else do nothing.
+    ///
+    /// Note: this operation preserves the fact that `det(self) = +/-1`.
+    #[inline]
+    fn half_bottom_row_if(&mut self, half: ConstChoice) {
+        // Safe to vartime; is variable only in the shift, which is a constant
+        self.m10 = Uint::select(&self.m10, &self.m10.shr1(), half);
+        self.m11 = Uint::select(&self.m11, &self.m11.shr1(), half);
     }
 }
 
@@ -177,34 +229,37 @@ impl<const LIMBS: usize> Uint<LIMBS> {
         Uint::conditional_swap(&mut a, &mut b, a_lt_b);
         matrix.swap_rows_if(a_lt_b);
 
-        // c = b * 2^k
         let mut k = a.bits() - b.bits();
         let mut c = b.shl(k);
+        matrix.double_bottom_row_k_times(k);
 
         let mut iterations = 0;
         while a.bits() > threshold && b != Uint::ZERO {
             let (a_sub_c, borrow) = a.sbb(&c, Limb::ZERO);
             let c_lte_a = ConstChoice::from_word_mask(borrow.0).not();
 
-            let double_c = c.shl_vartime(1);
+            let (double_c, _) = c.overflowing_shl1();
             let double_c_lte_a = Uint::lte(&double_c, &a);
 
             let subtract_c_from_a = c_lte_a.and(double_c_lte_a.not());
             a = Uint::select(&a, &a_sub_c, subtract_c_from_a);
-            matrix.conditional_subtract_bottom_row_2k_times_from_top_row(k, subtract_c_from_a);
+            matrix.conditional_subtract_bottom_row_from_top_row(subtract_c_from_a);
 
-            c = Uint::select(&c.shr_vartime(1), &double_c, double_c_lte_a);
+            c = Uint::select(&c.shr1(), &double_c, double_c_lte_a);
             k = double_c_lte_a.select_u32(k.saturating_sub(1), k.saturating_add(1));
+            matrix.double_bottom_row_if(double_c_lte_a);
 
             let c_lt_b = Uint::lt(&c, &b);
-            assert!(c_lt_b.not().to_bool_vartime() || k.is_zero());
+            matrix.half_bottom_row_if(c_lt_b.not().and(double_c_lte_a.not()));
+
+            debug_assert!(c_lt_b.not().to_bool_vartime() || k.is_zero());
             Uint::conditional_swap(&mut a, &mut b, c_lt_b);
             matrix.swap_rows_if(c_lt_b);
             c = Uint::select(&c, &b, c_lt_b);
-            k = c_lt_b.select_u32(k, 0);
 
             iterations += 1;
         }
+        matrix.half_bottom_row_k_times(k);
 
         // Make sure the matrix has a positive determinant
         Uint::conditional_swap(&mut a, &mut b, matrix.pattern.not());
