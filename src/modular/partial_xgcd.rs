@@ -91,8 +91,12 @@ impl<const LIMBS: usize> PxgcdMatrix<LIMBS> {
     fn conditional_subtract_bottom_row_from_top_row(&mut self, sub: ConstChoice) {
         // Note: these are additions (and not subtractions like the function name suggests) because
         // of how the sign-information of this matrix is stored in `pattern`.
-        self.m00 = Uint::select(&self.m00, &self.m00.wrapping_add(&self.m10), sub);
-        self.m01 = Uint::select(&self.m01, &self.m01.wrapping_add(&self.m11), sub);
+        self.m00 = self
+            .m00
+            .wrapping_add(&Uint::select(&Uint::ZERO, &self.m10, sub));
+        self.m01 = self
+            .m01
+            .wrapping_add(&Uint::select(&Uint::ZERO, &self.m11, sub));
     }
 
     /// Multiply the bottom row by `2^k`.
