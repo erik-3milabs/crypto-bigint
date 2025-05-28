@@ -1,5 +1,4 @@
-use crate::{CheckedSub, ConstChoice, Limb, Uint};
-use core::ops::{Div, Mul, Sub};
+use crate::{ConstChoice, Limb, Uint};
 use num_traits::Zero;
 
 /// The matrix representation used in the partial extended gcd algorithm.
@@ -499,36 +498,7 @@ mod tests {
     }
 
     mod test_pxgcd_randomized {
-        use crate::modular::partial_xgcd::tests::Vector;
-        use crate::{Concat, ConstChoice, PxgcdMatrix, Uint, U1024, U64};
-        use core::ops::Sub;
-
-        fn test_fast_partial_xgcd_output<const LIMBS: usize, const DOUBLE: usize>(
-            input: Vector<LIMBS>,
-            threshold: u32,
-            output: Vector<LIMBS>,
-            matrix: PxgcdMatrix<LIMBS>,
-        ) where
-            Uint<LIMBS>: Concat<Output = Uint<DOUBLE>>,
-        {
-            let (res_a, res_b) = output;
-            assert!(res_a.bits() <= threshold);
-            assert!(res_b.bits() <= threshold);
-
-            assert_eq!(matrix.wrapping_apply(input), output)
-        }
-
-        fn pxgcd_randomized_test<const LIMBS: usize, const DOUBLE: usize>(
-            input: Vector<LIMBS>,
-            threshold: u32,
-        ) where
-            Uint<LIMBS>: Concat<Output = Uint<DOUBLE>>,
-        {
-            let (a, b) = input;
-            let (res_a, res_b, matrix, iterations) = a.partial_xgcd_randomized(&b, threshold);
-            test_fast_partial_xgcd_output((a, b), threshold, (res_a, res_b), matrix);
-            assert!(iterations < (Uint::<LIMBS>::BITS - threshold) * 5 / 2);
-        }
+        use crate::{ConstChoice, PxgcdMatrix, U1024, U64};
 
         #[test]
         fn test_pxgcd_randomized_unit() {
