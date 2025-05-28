@@ -190,14 +190,9 @@ impl<const LIMBS: usize> Uint<LIMBS> {
                 c = double_c;
                 k = k.saturating_add(1);
             } else {
-                let no_underflow = borrow == Limb::ZERO;
-                if no_underflow {
-                    a = a_sub_c;
-                    matrix.conditional_subtract_bottom_row_2k_times_from_top_row(
-                        k,
-                        ConstChoice::TRUE,
-                    );
-                }
+                let no_underflow = ConstChoice::from_word_mask(borrow.0).not();
+                a = Uint::select(&a, &a_sub_c, no_underflow);
+                matrix.conditional_subtract_bottom_row_2k_times_from_top_row(k, no_underflow);
 
                 c = half_c;
                 k = k.saturating_sub(1);
