@@ -216,6 +216,17 @@ impl<const LIMBS: usize> Uint<LIMBS> {
         rhs: &Uint<LIMBS>,
         threshold: u32,
     ) -> (Self, Self, PxgcdMatrix<LIMBS>, u32) {
+        self.partial_xgcd_bounded_randomized(rhs, threshold, Uint::<LIMBS>::BITS)
+    }
+
+    /// Variation to [Self::partial_xgcd_randomized] that allows one to specify an `upper_bound` on
+    /// the bit-sizes of `self` and `rhs`, enabling an execution speed up.
+    pub fn partial_xgcd_bounded_randomized(
+        &self,
+        rhs: &Uint<LIMBS>,
+        threshold: u32,
+        upper_bound: u32,
+    ) -> (Self, Self, PxgcdMatrix<LIMBS>, u32) {
         // TODO: deal with situations where a and b have their top bit set
         assert!(self.as_int().is_negative().not().to_bool_vartime());
         assert!(rhs.as_int().is_negative().not().to_bool_vartime());
