@@ -1,6 +1,5 @@
 use crate::{ConstChoice, Limb, Uint};
 use core::ops::Mul;
-use num_traits::Zero;
 
 /// The matrix representation used in the partial extended gcd algorithm.
 ///
@@ -240,6 +239,7 @@ impl<const LIMBS: usize> Uint<LIMBS> {
         Uint::conditional_swap(&mut a, &mut b, a_lt_b);
         matrix.swap_rows_if(a_lt_b);
 
+        // Loop invariant: c = b · 2^k
         let mut k = a.bits() - b.bits();
         let mut c = b.shl(k);
         matrix.double_bottom_row_k_times(k);
@@ -252,6 +252,8 @@ impl<const LIMBS: usize> Uint<LIMBS> {
             let (a_sub_c, borrow) = a.sbb(&c, Limb::ZERO);
             let c_lte_a = ConstChoice::from_word_mask(borrow.0).not();
 
+            let half_c = c.shr1();
+            // note: this does not overflow, as neither a nor b has its top bit set at this point.
             let (double_c, _) = c.overflowing_shl1();
             let double_c_lte_a = Uint::lte(&double_c, &a);
 
@@ -260,24 +262,26 @@ impl<const LIMBS: usize> Uint<LIMBS> {
             a = Uint::select(&a, &a_sub_c, subtract_c_from_a);
             matrix.conditional_subtract_bottom_row_from_top_row(subtract_c_from_a);
 
-            // set c to be either c/2 or 2c.
-            c = Uint::select(&c.shr1(), &double_c, double_c_lte_a);
+            // c = b · 2^k, so c > b iff k > 0
+            let c_gt_b = ConstChoice::from_u32_nonzero(k);
 
-            // Update k and the matrix
-            k = alive.select_u32(
-                k,
-                double_c_lte_a.select_u32(k.saturating_sub(1), k.saturating_add(1)),
-            );
-            matrix.double_bottom_row_if(double_c_lte_a.and(alive));
+            // c <- 2c if 2c <= a
+            let do_double = double_c_lte_a.and(alive);
+            c = Uint::select(&c, &double_c, do_double);
+            k = do_double.select_u32(k, k.saturating_add(1));
+            matrix.double_bottom_row_if(do_double);
 
-            let c_lt_b = Uint::lt(&c, &b);
-            matrix.half_bottom_row_if(c_lt_b.not().and(double_c_lte_a.not()).and(alive));
+            // c <- c/2 if 2c > a (as long as c > b)
+            let do_half = double_c_lte_a.not().and(c_gt_b).and(alive);
+            c = Uint::select(&c, &half_c, do_half);
+            k = do_half.select_u32(k, k.saturating_sub(1));
+            matrix.half_bottom_row_if(do_half);
 
-            // swap a and b
-            debug_assert!(c_lt_b.not().to_bool_vartime() || k.is_zero());
-            Uint::conditional_swap(&mut a, &mut b, c_lt_b.and(alive));
-            matrix.swap_rows_if(c_lt_b.and(alive));
-            c = Uint::select(&c, &b, c_lt_b.and(alive));
+            // Swap a and b whenever k=0
+            let do_swap = ConstChoice::from_u32_nonzero(k).not().and(alive);
+            Uint::conditional_swap(&mut a, &mut b, do_swap);
+            matrix.swap_rows_if(do_swap);
+            c = Uint::select(&c, &b, do_swap);
         }
         matrix.half_bottom_row_k_times(k);
 
