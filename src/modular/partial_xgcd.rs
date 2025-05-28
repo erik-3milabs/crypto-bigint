@@ -248,10 +248,14 @@ impl<const LIMBS: usize> Uint<LIMBS> {
         let mut c = b.shl(k);
         matrix.double_bottom_row_k_times(k);
 
+        let threshold_mask = Uint::<LIMBS>::MAX
+            .shr_vartime(Uint::<LIMBS>::BITS.saturating_sub(threshold))
+            .not();
         let iterations = upper_bound.saturating_sub(threshold).mul(12).div_ceil(5);
         for _ in 0..iterations {
             // Only perform an action when ||a|| > threshold and b ≠ 0.
-            let alive = ConstChoice::from_u32_lt(threshold, a.bits()).and(b.is_nonzero());
+            let a_bits_gt_threshold = a.bitand(&threshold_mask).is_nonzero();
+            let alive = a_bits_gt_threshold.and(b.is_nonzero());
 
             let (a_sub_c, borrow) = a.sbb(&c, Limb::ZERO);
             let c_lte_a = ConstChoice::from_word_mask(borrow.0).not();
