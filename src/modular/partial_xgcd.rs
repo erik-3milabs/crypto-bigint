@@ -1,4 +1,5 @@
-use crate::{ConstChoice, Uint};
+use crate::{ConstChoice, Limb, Uint};
+use core::ops::Mul;
 
 /// The matrix representation used in the partial extended gcd algorithm.
 ///
@@ -81,6 +82,61 @@ impl<const LIMBS: usize> PxgcdMatrix<LIMBS> {
         self.m00 = Uint::select(&self.m00, &self.m00.wrapping_add(&self.m10.shl(k)), sub);
         self.m01 = Uint::select(&self.m01, &self.m01.wrapping_add(&self.m11.shl(k)), sub);
     }
+
+    /// Subtract the bottom row of this matrix from the top row if `sub` is set.
+    /// Otherwise, do nothing.
+    ///
+    /// Note: this operation preserves the fact that `det(self) = +/-1`.
+    #[inline]
+    fn conditional_subtract_bottom_row_from_top_row(&mut self, sub: ConstChoice) {
+        // Note: these are additions (and not subtractions like the function name suggests) because
+        // of how the sign-information of this matrix is stored in `pattern`.
+        self.m00 = self
+            .m00
+            .wrapping_add(&Uint::select(&Uint::ZERO, &self.m10, sub));
+        self.m01 = self
+            .m01
+            .wrapping_add(&Uint::select(&Uint::ZERO, &self.m11, sub));
+    }
+
+    /// Multiply the bottom row by `2^k`.
+    ///
+    /// Note: this operation preserves the fact that `det(self) = +/-1`.
+    #[inline]
+    fn double_bottom_row_k_times(&mut self, k: u32) {
+        self.m10 = self.m10.wrapping_shl(k);
+        self.m11 = self.m11.wrapping_shl(k);
+    }
+
+    /// Divide the values in the bottom row by `2^k`.
+    ///
+    /// Note: this operation preserves the fact that `det(self) = +/-1`.
+    #[inline]
+    fn half_bottom_row_k_times(&mut self, k: u32) {
+        // Safe to vartime; is variable only in the shift, which is a constant
+        self.m10 = self.m10.wrapping_shr(k);
+        self.m11 = self.m11.wrapping_shr(k);
+    }
+
+    /// Double the values in the bottom row if `double`, else do nothing
+    ///
+    /// Note: this operation preserves the fact that `det(self) = +/-1`.
+    #[inline]
+    fn double_bottom_row_if(&mut self, double: ConstChoice) {
+        // Safe to vartime; is variable only in the shift, which is a constant
+        self.m10 = Uint::select(&self.m10, &self.m10.overflowing_shl1().0, double);
+        self.m11 = Uint::select(&self.m11, &self.m11.overflowing_shl1().0, double);
+    }
+
+    /// Divide the values in the bottom row by two if `half`, else do nothing.
+    ///
+    /// Note: this operation preserves the fact that `det(self) = +/-1`.
+    #[inline]
+    fn half_bottom_row_if(&mut self, half: ConstChoice) {
+        // Safe to vartime; is variable only in the shift, which is a constant
+        self.m10 = Uint::select(&self.m10, &self.m10.shr1(), half);
+        self.m11 = Uint::select(&self.m11, &self.m11.shr1(), half);
+    }
 }
 
 impl<const LIMBS: usize> Uint<LIMBS> {
@@ -151,6 +207,95 @@ impl<const LIMBS: usize> Uint<LIMBS> {
         matrix.swap_rows_if(matrix.pattern.not());
 
         (a, b, matrix)
+    }
+
+    /// XGCD reduce `self` and `rhs` until both can be represented with `threshold` bits.
+    ///
+    /// Requires that the most significant bit of `self` and `rhs` is NOT set.
+    ///
+    /// Assumes `self` and `rhs` to be random elements, i.e., at no point in the process will `a`
+    /// and `b` differ more than 63 bits in size.
+    pub fn partial_xgcd_randomized(
+        &self,
+        rhs: &Uint<LIMBS>,
+        threshold: u32,
+    ) -> (Self, Self, PxgcdMatrix<LIMBS>, u32) {
+        self.partial_xgcd_bounded_randomized(rhs, threshold, Uint::<LIMBS>::BITS)
+    }
+
+    /// Variation to [Self::partial_xgcd_randomized] that allows one to specify an `upper_bound` on
+    /// the bit-sizes of `self` and `rhs`, enabling an execution speed up.
+    pub fn partial_xgcd_bounded_randomized(
+        &self,
+        rhs: &Uint<LIMBS>,
+        threshold: u32,
+        upper_bound: u32,
+    ) -> (Self, Self, PxgcdMatrix<LIMBS>, u32) {
+        // TODO: deal with situations where a and b have their top bit set
+        assert!(self.as_int().is_negative().not().to_bool_vartime());
+        assert!(rhs.as_int().is_negative().not().to_bool_vartime());
+
+        let (mut a, mut b) = (*self, *rhs);
+        let mut matrix = PxgcdMatrix::UNIT;
+
+        // Make sure a >= b
+        let a_lt_b = Uint::lt(&a, &b);
+        Uint::conditional_swap(&mut a, &mut b, a_lt_b);
+        matrix.swap_rows_if(a_lt_b);
+
+        // Loop invariant: c = b · 2^k
+        let mut k = a.bits() - b.bits();
+        let mut c = b.shl(k);
+        matrix.double_bottom_row_k_times(k);
+
+        let threshold_mask = Uint::<LIMBS>::MAX
+            .shr_vartime(Uint::<LIMBS>::BITS.saturating_sub(threshold))
+            .not();
+        let iterations = upper_bound.saturating_sub(threshold).mul(12).div_ceil(5);
+        for _ in 0..iterations {
+            // Only perform an action when ||a|| > threshold and b ≠ 0.
+            let a_bits_gt_threshold = a.bitand(&threshold_mask).is_nonzero();
+            let alive = a_bits_gt_threshold.and(b.is_nonzero());
+
+            let (a_sub_c, borrow) = a.sbb(&c, Limb::ZERO);
+            let c_lte_a = ConstChoice::from_word_mask(borrow.0).not();
+
+            let half_c = c.shr1();
+            // note: this does not overflow, as neither a nor b has its top bit set at this point.
+            let (double_c, _) = c.overflowing_shl1();
+            let double_c_lte_a = Uint::lte(&double_c, &a);
+
+            // Subtract c from a when a ∈ [c, 2c)
+            let subtract_c_from_a = c_lte_a.and(double_c_lte_a.not()).and(alive);
+            a = Uint::select(&a, &a_sub_c, subtract_c_from_a);
+            matrix.conditional_subtract_bottom_row_from_top_row(subtract_c_from_a);
+
+            // c = b · 2^k, so c > b iff k > 0
+            let c_gt_b = ConstChoice::from_u32_nonzero(k);
+
+            // c <- { 2·c if 2c ≤ a
+            //      { c/2 if 2c > a (as long as c > b)
+            let do_double = double_c_lte_a.and(alive);
+            c = Uint::select(&half_c, &double_c, do_double);
+            k = do_double.select_u32(k, k.saturating_add(1));
+            matrix.double_bottom_row_if(do_double);
+            let do_half = double_c_lte_a.not().and(c_gt_b).and(alive);
+            k = do_half.select_u32(k, k.saturating_sub(1));
+            matrix.half_bottom_row_if(do_half);
+
+            // Swap a and b whenever k=0
+            let do_swap = ConstChoice::from_u32_nonzero(k).not().and(alive);
+            Uint::conditional_swap(&mut a, &mut b, do_swap);
+            matrix.swap_rows_if(do_swap);
+            c = Uint::select(&c, &b, do_swap);
+        }
+        matrix.half_bottom_row_k_times(k);
+
+        // Make sure the matrix has a positive determinant
+        Uint::conditional_swap(&mut a, &mut b, matrix.pattern.not());
+        matrix.swap_rows_if(matrix.pattern.not());
+
+        (a, b, matrix, iterations)
     }
 }
 
@@ -311,7 +456,7 @@ mod tests {
         }
 
         #[test]
-        fn text_partial_xgcd_non_unitary_elements() {
+        fn test_partial_xgcd_non_unitary_elements() {
             let (a, b, matrix) = U64::from(2u64).partial_xgcd(&U64::ONE, 1);
             assert_eq!(a, U64::ZERO);
             assert_eq!(b, U64::ONE);
@@ -328,7 +473,7 @@ mod tests {
         }
 
         #[test]
-        fn text_partial_xgcd_zero() {
+        fn test_partial_xgcd_zero() {
             let threshold = 6;
 
             let (a, b) = (U64::from(554u64), U64::ZERO);
@@ -345,7 +490,7 @@ mod tests {
         }
 
         #[test]
-        fn text_partial_xgcd() {
+        fn test_partial_xgcd() {
             let threshold = 6;
 
             let (a, b) = (U64::from(554u64), U64::from(3321u64));
@@ -358,7 +503,7 @@ mod tests {
         }
 
         #[test]
-        fn text_partial_xgcd_large() {
+        fn test_partial_xgcd_large() {
             let threshold = 512;
 
             let (a, b) = (U1024::MAX, U1024::ONE.shl(750));
@@ -371,10 +516,113 @@ mod tests {
         }
 
         #[test]
-        fn text_partial_xgcd_no_threshold_underflow() {
+        fn test_partial_xgcd_no_threshold_underflow() {
             let threshold = 700;
             let (a, b) = (U64::ONE, U64::ZERO);
             let (partial_a, partial_b, matrix) = a.partial_xgcd(&b, threshold);
+
+            assert!(partial_a.bits() <= threshold);
+            assert!(partial_b.bits() <= threshold);
+
+            assert_eq!(matrix.wrapping_apply((a, b)), (partial_a, partial_b));
+        }
+    }
+
+    mod test_pxgcd_randomized {
+        use crate::{ConstChoice, PxgcdMatrix, U1024, U64};
+
+        #[test]
+        fn test_pxgcd_randomized_unit() {
+            let (a, b, matrix, ..) = U64::ONE.partial_xgcd_randomized(&U64::ZERO, 1);
+            assert_eq!(a, U64::ONE);
+            assert_eq!(b, U64::ZERO);
+            assert_eq!(matrix, PxgcdMatrix::UNIT);
+        }
+
+        #[test]
+        fn test_pxgcd_randomized_unit_swapped() {
+            let (a, b, matrix, ..) = U64::ZERO.partial_xgcd_randomized(&U64::ONE, 1);
+            assert_eq!(a, U64::ZERO);
+            assert_eq!(b, U64::ONE);
+            assert_eq!(matrix, PxgcdMatrix::UNIT);
+        }
+
+        #[test]
+        fn test_pxgcd_randomized_non_unitary_elements() {
+            let (a, b, matrix, ..) = U64::from(2u64).partial_xgcd_randomized(&U64::ONE, 1);
+            assert_eq!(a, U64::ZERO);
+            assert_eq!(b, U64::ONE);
+            assert_eq!(
+                matrix,
+                PxgcdMatrix::new(
+                    U64::ONE,
+                    U64::from_u64(2u64),
+                    U64::ZERO,
+                    U64::ONE,
+                    ConstChoice::TRUE
+                )
+            );
+        }
+
+        #[test]
+        fn test_pxgcd_randomized_zero() {
+            let threshold = 6;
+
+            let (a, b) = (U64::from(554u64), U64::ZERO);
+            let (partial_a, partial_b, matrix, ..) = a.partial_xgcd_randomized(&b, threshold);
+            assert_eq!(partial_a, U64::from(554u64));
+            assert_eq!(partial_b, U64::ZERO);
+            assert_eq!(matrix.wrapping_apply((a, b)), (partial_a, partial_b));
+
+            let (partial_a, partial_b, matrix, ..) = b.partial_xgcd_randomized(&a, threshold);
+
+            assert_eq!(partial_a, U64::ZERO);
+            assert_eq!(partial_b, U64::from(554u64));
+            assert_eq!(matrix.wrapping_apply((b, a)), (partial_a, partial_b));
+        }
+
+        #[test]
+        fn test_pxgcd_randomized() {
+            let threshold = 6;
+
+            let (a, b) = (U64::from(554u64), U64::from(3321u64));
+            let (partial_a, partial_b, matrix, ..) = a.partial_xgcd_randomized(&b, threshold);
+
+            assert_eq!(partial_a, U64::from(3u64));
+            assert_eq!(partial_b, U64::from(23u64));
+
+            assert_eq!(matrix.wrapping_apply((a, b)), (partial_a, partial_b));
+        }
+
+        #[test]
+        fn test_pxgcd_randomized_large() {
+            let threshold = 512;
+
+            let a = U1024::from_be_hex(concat![
+                "5DD7D2A26628253140D3B3FF6FB58D90EDD2453E349B10D2126E45E496BC77FA",
+                "2B57C249D4E9ADACE90489C9CC7CBDC4398B9789BCD953CD035918578C935420",
+                "4363C09A549AC89C1B9228B0D3E916EC48DDDD9907C21931634EF8389C62942A",
+                "46968524A431F19DF85D5CDCAF372359E039DE505DD0DD2AD30F609C85C5DFA1"
+            ]);
+            let b = U1024::from_be_hex(concat![
+                "6A4DD9B62DB7A17E9A7A90F436EFD05019AB3D1153C5FD49040A3AE98B42C505",
+                "2172F081D126E34615B1B793CB6C023B7B75B264164483CEB717F22A4DA641D2",
+                "4BC370207E0707ABC3945F08E3F2F1354BE3F5F84165EFEBF4DCB27C359CC83A",
+                "1F82699B459EEFCF2777DED206EFEC05C8F27522DDE036CDB3611D4290416BEA"
+            ]);
+            let (partial_a, partial_b, matrix, ..) = a.partial_xgcd_randomized(&b, threshold);
+
+            assert!(partial_a.bits() <= threshold);
+            assert!(partial_b.bits() <= threshold);
+
+            assert_eq!(matrix.wrapping_apply((a, b)), (partial_a, partial_b));
+        }
+
+        #[test]
+        fn test_pxgcd_randomized_no_threshold_underflow() {
+            let threshold = 700;
+            let (a, b) = (U64::ONE, U64::ZERO);
+            let (partial_a, partial_b, matrix, ..) = a.partial_xgcd_randomized(&b, threshold);
 
             assert!(partial_a.bits() <= threshold);
             assert!(partial_b.bits() <= threshold);

@@ -438,10 +438,36 @@ fn bench_pxgcd(c: &mut Criterion) {
         )
     });
 
+    group.bench_function("partial_xgcd_randomized, U1024", |b| {
+        b.iter_batched(
+            || {
+                (
+                    U1024::random(&mut OsRng).as_int().abs(),
+                    U1024::random(&mut OsRng).as_int().abs(),
+                )
+            },
+            |(x, y)| x.partial_xgcd_randomized(&y, 512),
+            BatchSize::SmallInput,
+        )
+    });
+
     group.bench_function("bounded_partial_xgcd, U1024, 930 bits", |b| {
         b.iter_batched(
             || (U1024::random(&mut OsRng), U1024::random(&mut OsRng)),
             |(x, y)| x.bounded_partial_xgcd(&y, 465, 930),
+            BatchSize::SmallInput,
+        )
+    });
+
+    group.bench_function("bounded_partial_xgcd_randomized, U1024, 930 bits", |b| {
+        b.iter_batched(
+            || {
+                (
+                    U1024::random(&mut OsRng).as_int().abs(),
+                    U1024::random(&mut OsRng).as_int().abs(),
+                )
+            },
+            |(x, y)| x.partial_xgcd_bounded_randomized(&y, 465, 930),
             BatchSize::SmallInput,
         )
     });
