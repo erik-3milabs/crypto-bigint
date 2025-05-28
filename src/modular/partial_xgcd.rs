@@ -265,15 +265,13 @@ impl<const LIMBS: usize> Uint<LIMBS> {
             // c = b · 2^k, so c > b iff k > 0
             let c_gt_b = ConstChoice::from_u32_nonzero(k);
 
-            // c <- 2c if 2c <= a
+            // c <- {  2c if 2c <= a
+            //      { c/2 if 2c  > a (as long as c > b)
             let do_double = double_c_lte_a.and(alive);
-            c = Uint::select(&c, &double_c, do_double);
+            c = Uint::select(&half_c, &double_c, do_double);
             k = do_double.select_u32(k, k.saturating_add(1));
             matrix.double_bottom_row_if(do_double);
-
-            // c <- c/2 if 2c > a (as long as c > b)
             let do_half = double_c_lte_a.not().and(c_gt_b).and(alive);
-            c = Uint::select(&c, &half_c, do_half);
             k = do_half.select_u32(k, k.saturating_sub(1));
             matrix.half_bottom_row_if(do_half);
 
