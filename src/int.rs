@@ -152,6 +152,11 @@ impl<const LIMBS: usize> Int<LIMBS> {
         &self.0
     }
 
+    /// Convert the data in this type to be a [`Uint`] instead.
+    pub const fn to_uint(&self) -> ConstCtOption<Uint<LIMBS>> {
+        ConstCtOption::new(self.0, self.is_negative().not())
+    }
+
     /// Whether this [`Int`] is equal to `Self::MIN`.
     pub const fn is_min(&self) -> ConstChoice {
         Self::eq(self, &Self::MIN)
