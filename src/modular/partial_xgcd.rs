@@ -146,20 +146,50 @@ impl<const LIMBS: usize> Uint<LIMBS> {
         rhs: &Uint<LIMBS>,
         threshold: u32,
     ) -> (Self, Self, PxgcdMatrix<LIMBS>) {
-        self.bounded_partial_xgcd(rhs, threshold, Uint::<LIMBS>::BITS)
+        self.bounded_partial_xgcd(rhs, Uint::<LIMBS>::BITS, threshold)
     }
 
     /// Extended GCD-reduce `self` and `rhs` until both can be represented using `threshold` bits.
     ///
-    /// Executes in variable time with respect to `bits_upper_bound`: an upper bound on the bit size
-    /// of `self` and `rhs`. Note that this algorithm becomes constant time when a static upper
-    /// bound is passed.
+    /// Executes in variable time with respect to
+    /// 1. `bits_upper_bound`: an upper bound on the bit size of `self` and `rhs`, and
+    /// 2. `threshold`.
+    /// Note that this algorithm becomes constant time when a static upper `bits_upper_bound` is
+    /// passed.
     pub fn bounded_partial_xgcd(
         &self,
         rhs: &Uint<LIMBS>,
-        threshold: u32,
         bits_upper_bound: u32,
+        threshold: u32,
     ) -> (Self, Self, PxgcdMatrix<LIMBS>) {
+        self.bounded_partial_xgcd_with_bounded_threshold(
+            rhs,
+            bits_upper_bound,
+            threshold,
+            threshold,
+        )
+    }
+
+    /// Extended GCD-reduce `self` and `rhs` until both can be represented using `threshold` bits,
+    /// where `threshold ≥ threshold_lower_bound`.
+    ///
+    /// Executes in variable time with respect to
+    /// 1. `bits_upper_bound`: an upper bound on the bit size of `self` and `rhs`, and
+    /// 2. `threshold_lower_bound`.
+    /// Note that this algorithm becomes constant time when a static upper `bits_upper_bound` is
+    /// passed.
+    pub fn bounded_partial_xgcd_with_bounded_threshold(
+        &self,
+        rhs: &Uint<LIMBS>,
+        bits_upper_bound: u32,
+        threshold: u32,
+        threshold_lower_bound: u32,
+    ) -> (Self, Self, PxgcdMatrix<LIMBS>) {
+        assert!(bool::from(ConstChoice::from_u32_le(
+            threshold_lower_bound,
+            threshold
+        )));
+
         let (mut a, mut b) = (*self, *rhs);
         let (mut a_bits, mut b_bits) = (a.bits(), b.bits());
         let mut matrix = PxgcdMatrix::UNIT;
@@ -173,7 +203,7 @@ impl<const LIMBS: usize> Uint<LIMBS> {
         // TODO: we think we can prove that 7/4 * (upperbound - threshold) + C iterations will
         //  suffice (as long as the gap between upperbound and threshold is large enough?)
         let iterations = bits_upper_bound
-            .saturating_sub(threshold)
+            .saturating_sub(threshold_lower_bound)
             .saturating_mul(2)
             .saturating_sub(1);
         let mut i = 0;
