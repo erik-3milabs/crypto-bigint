@@ -241,6 +241,8 @@ impl<const LIMBS: usize> Uint<LIMBS> {
 
     /// XGCD reduce `self` and `rhs` until both can be represented with `threshold` bits.
     ///
+    /// Executes in variable time w.r.t. `threshold`.
+    ///
     /// Requires that the most significant bit of `self` and `rhs` is NOT set.
     ///
     /// Assumes `self` and `rhs` to be random elements, i.e., at no point in the process will `a`
@@ -250,7 +252,7 @@ impl<const LIMBS: usize> Uint<LIMBS> {
         rhs: &Uint<LIMBS>,
         threshold: u32,
     ) -> (Self, Self, PxgcdMatrix<LIMBS>, u32) {
-        self.partial_xgcd_bounded_randomized(rhs, threshold, Uint::<LIMBS>::BITS)
+        self.partial_xgcd_bounded_randomized(rhs, Uint::<LIMBS>::BITS, threshold)
     }
 
     /// Variation to [Self::partial_xgcd_randomized] that allows one to specify an `upper_bound` on
@@ -258,9 +260,33 @@ impl<const LIMBS: usize> Uint<LIMBS> {
     pub fn partial_xgcd_bounded_randomized(
         &self,
         rhs: &Uint<LIMBS>,
+        bits_upper_bound: u32,
         threshold: u32,
-        upper_bound: u32,
     ) -> (Self, Self, PxgcdMatrix<LIMBS>, u32) {
+        self.partial_xgcd_bounded_randomized_with_bounded_threshold(
+            rhs,
+            bits_upper_bound,
+            threshold,
+            threshold,
+        )
+    }
+
+    /// Variation to [Self::partial_xgcd_bounded_randomized] that allows one to specify a
+    /// `threshold_lower_bound` value of `threshold`.
+    ///
+    /// Executes in variable time w.r.t. `threshold_lower_bound` instead of `threshold`.
+    pub fn partial_xgcd_bounded_randomized_with_bounded_threshold(
+        &self,
+        rhs: &Uint<LIMBS>,
+        bits_upper_bound: u32,
+        threshold: u32,
+        threshold_lower_bound: u32,
+    ) -> (Self, Self, PxgcdMatrix<LIMBS>, u32) {
+        assert!(bool::from(ConstChoice::from_u32_le(
+            threshold_lower_bound,
+            threshold
+        )));
+
         // TODO: deal with situations where a and b have their top bit set
         assert!(self.as_int().is_negative().not().to_bool_vartime());
         assert!(rhs.as_int().is_negative().not().to_bool_vartime());
@@ -281,7 +307,10 @@ impl<const LIMBS: usize> Uint<LIMBS> {
         let threshold_mask = Uint::<LIMBS>::MAX
             .shr_vartime(Uint::<LIMBS>::BITS.saturating_sub(threshold))
             .not();
-        let iterations = upper_bound.saturating_sub(threshold).mul(12).div_ceil(5);
+        let iterations = bits_upper_bound
+            .saturating_sub(threshold_lower_bound)
+            .mul(12)
+            .div_ceil(5);
         for _ in 0..iterations {
             // Only perform an action when ||a|| > threshold and b ≠ 0.
             let a_bits_gt_threshold = a.bitand(&threshold_mask).is_nonzero();
