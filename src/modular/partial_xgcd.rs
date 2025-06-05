@@ -154,6 +154,7 @@ impl<const LIMBS: usize> Uint<LIMBS> {
     /// Executes in variable time with respect to
     /// 1. `bits_upper_bound`: an upper bound on the bit size of `self` and `rhs`, and
     /// 2. `threshold`.
+    ///
     /// Note that this algorithm becomes constant time when a static upper `bits_upper_bound` is
     /// passed.
     pub fn bounded_partial_xgcd(
@@ -176,6 +177,7 @@ impl<const LIMBS: usize> Uint<LIMBS> {
     /// Executes in variable time with respect to
     /// 1. `bits_upper_bound`: an upper bound on the bit size of `self` and `rhs`, and
     /// 2. `threshold_lower_bound`.
+    ///
     /// Note that this algorithm becomes constant time when a static upper `bits_upper_bound` is
     /// passed.
     pub fn bounded_partial_xgcd_with_bounded_threshold(
