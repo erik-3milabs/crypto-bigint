@@ -347,7 +347,7 @@ impl<const LIMBS: usize> WrappingMul for Uint<LIMBS> {
 
 /// Helper method to perform schoolbook multiplication
 #[inline]
-pub(crate) const fn uint_mul_limbs<const LIMBS: usize, const RHS_LIMBS: usize>(
+pub const fn uint_mul_limbs<const LIMBS: usize, const RHS_LIMBS: usize>(
     lhs: &[Limb],
     rhs: &[Limb],
 ) -> (Uint<LIMBS>, Uint<RHS_LIMBS>) {
