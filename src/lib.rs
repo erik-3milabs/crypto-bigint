@@ -190,7 +190,9 @@ pub use crate::{
     non_zero::*,
     odd::*,
     traits::*,
-    uint::{div_limb::Reciprocal, *},
+    uint::div_limb::{div3by2, Reciprocal},
+    uint::mul::uint_mul_limbs,
+    uint::*,
     wrapping::Wrapping,
 };
 
