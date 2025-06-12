@@ -9,7 +9,6 @@
 #![warn(
     clippy::mod_module_files,
     clippy::unwrap_used,
-    missing_docs,
     missing_debug_implementations,
     missing_copy_implementations,
     rust_2018_idioms,
@@ -179,7 +178,8 @@ pub use crate::{
     non_zero::NonZero,
     odd::Odd,
     traits::*,
-    uint::div_limb::Reciprocal,
+    uint::div_limb::{div3by2, Reciprocal},
+    uint::mul::uint_mul_limbs,
     uint::*,
     wrapping::Wrapping,
 };

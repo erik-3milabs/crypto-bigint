@@ -23,7 +23,7 @@ impl<const LIMBS: usize> Int<LIMBS> {
     /// Warning: this operation is unsafe to use as negation; the result is incorrect when
     /// `self == Self::MIN` and `negate` is truthy.
     #[inline]
-    pub(crate) const fn wrapping_neg_if(&self, negate: ConstChoice) -> Int<LIMBS> {
+    pub const fn wrapping_neg_if(&self, negate: ConstChoice) -> Int<LIMBS> {
         Self(self.0.wrapping_neg_if(negate))
     }
 

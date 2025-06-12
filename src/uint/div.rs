@@ -149,7 +149,7 @@ impl<const LIMBS: usize> Uint<LIMBS> {
     /// returning the result and the carry.
     ///
     /// Note: assumes that `self` only has `limb_num` lowest non-zero limbs.
-    const fn shl_limb_vartime(&self, shift: u32, limbs_num: usize) -> (Self, Limb) {
+    pub const fn shl_limb_vartime(&self, shift: u32, limbs_num: usize) -> (Self, Limb) {
         if shift == 0 {
             return (*self, Limb::ZERO);
         }
@@ -173,7 +173,7 @@ impl<const LIMBS: usize> Uint<LIMBS> {
     /// Computes `self >> shift` where `0 <= shift < Limb::BITS`.
     ///
     /// Note: assumes that `self` only has `limb_num` lowest non-zero limbs.
-    const fn shr_limb_vartime(&self, shift: u32, limbs_num: usize) -> Self {
+    pub const fn shr_limb_vartime(&self, shift: u32, limbs_num: usize) -> Self {
         if shift == 0 {
             return *self;
         }

@@ -13,7 +13,7 @@ impl<const LIMBS: usize> Int<LIMBS> {
     ///
     /// Computes the quotient and remainder of `self / rhs`.
     /// Furthermore, returns the signs of `self` and `rhs`.
-    const fn div_rem_base<const RHS_LIMBS: usize>(
+    pub const fn div_rem_base<const RHS_LIMBS: usize>(
         &self,
         rhs: &NonZero<Int<RHS_LIMBS>>,
     ) -> (Uint<LIMBS>, Uint<RHS_LIMBS>, ConstChoice, ConstChoice) {
@@ -35,7 +35,7 @@ impl<const LIMBS: usize> Int<LIMBS> {
     ///
     /// When used with a fixed `rhs`, this function is constant-time with respect
     /// to `self`.
-    const fn div_rem_base_vartime<const RHS_LIMBS: usize>(
+    pub const fn div_rem_base_vartime<const RHS_LIMBS: usize>(
         &self,
         rhs: &NonZero<Int<RHS_LIMBS>>,
     ) -> (Uint<LIMBS>, Uint<RHS_LIMBS>, ConstChoice, ConstChoice) {
@@ -151,7 +151,7 @@ impl<const LIMBS: usize> Int<LIMBS> {
     /// Variable time equivalent of [Self::div_rem_base]
     ///
     /// This is variable with respect to both `self` and `rhs`.
-    const fn div_rem_base_full_vartime<const RHS_LIMBS: usize>(
+    pub const fn div_rem_base_full_vartime<const RHS_LIMBS: usize>(
         &self,
         rhs: &NonZero<Int<RHS_LIMBS>>,
     ) -> (Uint<LIMBS>, Uint<RHS_LIMBS>, ConstChoice, ConstChoice) {
@@ -200,7 +200,7 @@ impl<const LIMBS: usize> Int<LIMBS> {
 /// Checked div-floor operations.
 impl<const LIMBS: usize> Int<LIMBS> {
     /// Convert the output of `numerator / denominator` into that of `floor(numerator/denominator)`.
-    const fn div_rem_to_div_rem_floor<const DENOMINATOR_LIMBS: usize>(
+    pub const fn div_rem_to_div_rem_floor<const DENOMINATOR_LIMBS: usize>(
         quotient: Uint<LIMBS>,
         remainder: Uint<DENOMINATOR_LIMBS>,
         numerator_sign: ConstChoice,

@@ -9,7 +9,7 @@ impl<const LIMBS: usize> Int<LIMBS> {
     /// Base div_rem operation on dividing an [`Int`] by a [`Uint`].
     /// Computes the quotient and remainder of `self / rhs`.
     /// Furthermore, returns the sign of `self`.
-    const fn div_rem_base_uint<const RHS_LIMBS: usize>(
+    pub const fn div_rem_base_uint<const RHS_LIMBS: usize>(
         &self,
         rhs: &NonZero<Uint<RHS_LIMBS>>,
     ) -> (Uint<LIMBS>, Uint<RHS_LIMBS>, ConstChoice) {
@@ -25,7 +25,7 @@ impl<const LIMBS: usize> Int<LIMBS> {
     ///
     /// When used with a fixed `rhs`, this function is constant-time with respect
     /// to `self`.
-    const fn div_rem_base_uint_vartime<const RHS_LIMBS: usize>(
+    pub const fn div_rem_base_uint_vartime<const RHS_LIMBS: usize>(
         &self,
         rhs: &NonZero<Uint<RHS_LIMBS>>,
     ) -> (Uint<LIMBS>, Uint<RHS_LIMBS>, ConstChoice) {
@@ -121,7 +121,7 @@ impl<const LIMBS: usize> Int<LIMBS> {
     /// Fully variable time equivalent of [Self::div_rem_base_uint].
     ///
     /// This is variable with respect to both `self` and `rhs`.
-    const fn div_rem_base_uint_full_vartime<const RHS_LIMBS: usize>(
+    pub const fn div_rem_base_uint_full_vartime<const RHS_LIMBS: usize>(
         &self,
         rhs: &NonZero<Uint<RHS_LIMBS>>,
     ) -> (Uint<LIMBS>, Uint<RHS_LIMBS>, ConstChoice) {
