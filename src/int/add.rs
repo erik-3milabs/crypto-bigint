@@ -148,7 +148,7 @@ mod tests {
 
             let (val, overflow) = I128::MINUS_ONE.overflowing_add(&I128::MINUS_ONE);
             assert_eq!(overflow, ConstChoice::FALSE);
-            assert_eq!(val, two.neg().unwrap());
+            assert_eq!(val, two.checked_neg().unwrap());
 
             let (val, overflow) = I128::MINUS_ONE.overflowing_add(&I128::ZERO);
             assert_eq!(overflow, ConstChoice::FALSE);
