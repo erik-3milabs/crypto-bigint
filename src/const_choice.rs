@@ -17,26 +17,26 @@ impl ConstChoice {
 
     #[inline]
     #[allow(trivial_numeric_casts)]
-    pub(crate) const fn as_u32_mask(&self) -> u32 {
+    pub const fn as_u32_mask(&self) -> u32 {
         self.0 as u32
     }
 
     #[inline]
     #[cfg(target_pointer_width = "32")]
-    pub(crate) const fn as_u64_mask(&self) -> u64 {
+    pub const fn as_u64_mask(&self) -> u64 {
         ((self.0 as u64) << 32) | (self.0 as u64)
     }
 
     #[inline]
     #[cfg(target_pointer_width = "64")]
-    pub(crate) const fn as_u64_mask(&self) -> u64 {
+    pub const fn as_u64_mask(&self) -> u64 {
         self.0
     }
 
     /// Returns the truthy value if `value == Word::MAX`, and the falsy value if `value == 0`.
     /// Panics for other values.
     #[inline]
-    pub(crate) const fn from_word_mask(value: Word) -> Self {
+    pub const fn from_word_mask(value: Word) -> Self {
         debug_assert!(value == Self::FALSE.0 || value == Self::TRUE.0);
         Self(value)
     }
@@ -44,7 +44,7 @@ impl ConstChoice {
     /// Returns the truthy value if `value == 1`, and the falsy value if `value == 0`.
     /// Panics for other values.
     #[inline]
-    pub(crate) const fn from_word_lsb(value: Word) -> Self {
+    pub const fn from_word_lsb(value: Word) -> Self {
         debug_assert!(value == 0 || value == 1);
         Self(value.wrapping_neg())
     }
@@ -52,27 +52,27 @@ impl ConstChoice {
     /// Returns the truthy value if the most significant bit of `value` is `1`,
     /// and the falsy value if it equals `0`.
     #[inline]
-    pub(crate) const fn from_word_msb(value: Word) -> Self {
+    pub const fn from_word_msb(value: Word) -> Self {
         Self::from_word_lsb(value >> (Word::BITS - 1))
     }
 
     /// Returns the truthy value if `value == 1`, and the falsy value if `value == 0`.
     /// Panics for other values.
     #[inline]
-    pub(crate) const fn from_wide_word_lsb(value: WideWord) -> Self {
+    pub const fn from_wide_word_lsb(value: WideWord) -> Self {
         debug_assert!(value == 0 || value == 1);
         Self(value.wrapping_neg() as Word)
     }
 
     #[inline]
-    pub(crate) const fn from_u32_lsb(value: u32) -> Self {
+    pub const fn from_u32_lsb(value: u32) -> Self {
         debug_assert!(value == 0 || value == 1);
         #[allow(trivial_numeric_casts)]
         Self((value as Word).wrapping_neg())
     }
 
     #[inline]
-    pub(crate) const fn from_u64_lsb(value: u64) -> Self {
+    pub const fn from_u64_lsb(value: u64) -> Self {
         debug_assert!(value == 0 || value == 1);
         #[allow(trivial_numeric_casts)]
         Self((value as Word).wrapping_neg())
@@ -80,43 +80,43 @@ impl ConstChoice {
 
     /// Returns the truthy value if `value != 0`, and the falsy value otherwise.
     #[inline]
-    pub(crate) const fn from_u32_nonzero(value: u32) -> Self {
+    pub const fn from_u32_nonzero(value: u32) -> Self {
         Self::from_u32_lsb((value | value.wrapping_neg()) >> (u32::BITS - 1))
     }
 
     /// Returns the truthy value if `value != 0`, and the falsy value otherwise.
     #[inline]
-    pub(crate) const fn from_u64_nonzero(value: u64) -> Self {
+    pub const fn from_u64_nonzero(value: u64) -> Self {
         Self::from_u64_lsb((value | value.wrapping_neg()) >> (u64::BITS - 1))
     }
 
     /// Returns the truthy value if `value != 0`, and the falsy value otherwise.
     #[inline]
-    pub(crate) const fn from_word_nonzero(value: Word) -> Self {
+    pub const fn from_word_nonzero(value: Word) -> Self {
         Self::from_word_lsb((value | value.wrapping_neg()) >> (Word::BITS - 1))
     }
 
     /// Returns the truthy value if `x == y`, and the falsy value otherwise.
     #[inline]
-    pub(crate) const fn from_u32_eq(x: u32, y: u32) -> Self {
+    pub const fn from_u32_eq(x: u32, y: u32) -> Self {
         Self::from_u32_nonzero(x ^ y).not()
     }
 
     /// Returns the truthy value if `x == y`, and the falsy value otherwise.
     #[inline]
-    pub(crate) const fn from_u64_eq(x: u64, y: u64) -> Self {
+    pub const fn from_u64_eq(x: u64, y: u64) -> Self {
         Self::from_u64_nonzero(x ^ y).not()
     }
 
     /// Returns the truthy value if `x == y`, and the falsy value otherwise.
     #[inline]
-    pub(crate) const fn from_word_eq(x: Word, y: Word) -> Self {
+    pub const fn from_word_eq(x: Word, y: Word) -> Self {
         Self::from_word_nonzero(x ^ y).not()
     }
 
     /// Returns the truthy value if `x < y`, and the falsy value otherwise.
     #[inline]
-    pub(crate) const fn from_word_lt(x: Word, y: Word) -> Self {
+    pub const fn from_word_lt(x: Word, y: Word) -> Self {
         // See "Hacker's Delight" 2nd ed, section 2-12 (Comparison predicates)
         let bit = (((!x) & y) | (((!x) | y) & (x.wrapping_sub(y)))) >> (Word::BITS - 1);
         Self::from_word_lsb(bit)
@@ -124,13 +124,13 @@ impl ConstChoice {
 
     /// Returns the truthy value if `x > y`, and the falsy value otherwise.
     #[inline]
-    pub(crate) const fn from_word_gt(x: Word, y: Word) -> Self {
+    pub const fn from_word_gt(x: Word, y: Word) -> Self {
         Self::from_word_lt(y, x)
     }
 
     /// Returns the truthy value if `x < y`, and the falsy value otherwise.
     #[inline]
-    pub(crate) const fn from_u32_lt(x: u32, y: u32) -> Self {
+    pub const fn from_u32_lt(x: u32, y: u32) -> Self {
         // See "Hacker's Delight" 2nd ed, section 2-12 (Comparison predicates)
         let bit = (((!x) & y) | (((!x) | y) & (x.wrapping_sub(y)))) >> (u32::BITS - 1);
         Self::from_u32_lsb(bit)
@@ -138,7 +138,7 @@ impl ConstChoice {
 
     /// Returns the truthy value if `x <= y` and the falsy value otherwise.
     #[inline]
-    pub(crate) const fn from_word_le(x: Word, y: Word) -> Self {
+    pub const fn from_word_le(x: Word, y: Word) -> Self {
         // See "Hacker's Delight" 2nd ed, section 2-12 (Comparison predicates)
         let bit = (((!x) | y) & ((x ^ y) | !(y.wrapping_sub(x)))) >> (Word::BITS - 1);
         Self::from_word_lsb(bit)
@@ -146,7 +146,7 @@ impl ConstChoice {
 
     /// Returns the truthy value if `x <= y` and the falsy value otherwise.
     #[inline]
-    pub(crate) const fn from_wide_word_le(x: WideWord, y: WideWord) -> Self {
+    pub const fn from_wide_word_le(x: WideWord, y: WideWord) -> Self {
         // See "Hacker's Delight" 2nd ed, section 2-12 (Comparison predicates)
         let bit = (((!x) | y) & ((x ^ y) | !(y.wrapping_sub(x)))) >> (WideWord::BITS - 1);
         Self::from_wide_word_lsb(bit)
@@ -154,7 +154,7 @@ impl ConstChoice {
 
     /// Returns the truthy value if `x <= y` and the falsy value otherwise.
     #[inline]
-    pub(crate) const fn from_u32_le(x: u32, y: u32) -> Self {
+    pub const fn from_u32_le(x: u32, y: u32) -> Self {
         // See "Hacker's Delight" 2nd ed, section 2-12 (Comparison predicates)
         let bit = (((!x) | y) & ((x ^ y) | !(y.wrapping_sub(x)))) >> (u32::BITS - 1);
         Self::from_u32_lsb(bit)
@@ -162,7 +162,7 @@ impl ConstChoice {
 
     /// Returns the truthy value if `x < y`, and the falsy value otherwise.
     #[inline]
-    pub(crate) const fn from_u64_lt(x: u64, y: u64) -> Self {
+    pub const fn from_u64_lt(x: u64, y: u64) -> Self {
         // See "Hacker's Delight" 2nd ed, section 2-12 (Comparison predicates)
         let bit = (((!x) & y) | (((!x) | y) & (x.wrapping_sub(y)))) >> (u64::BITS - 1);
         Self::from_u64_lsb(bit)
@@ -170,90 +170,96 @@ impl ConstChoice {
 
     /// Returns the truthy value if `x > y`, and the falsy value otherwise.
     #[inline]
-    pub(crate) const fn from_u64_gt(x: u64, y: u64) -> Self {
+    pub const fn from_u64_gt(x: u64, y: u64) -> Self {
         Self::from_u64_lt(y, x)
     }
 
     #[inline]
-    pub(crate) const fn not(&self) -> Self {
+    pub const fn not(&self) -> Self {
         Self(!self.0)
     }
 
     #[inline]
-    pub(crate) const fn or(&self, other: Self) -> Self {
+    pub const fn or(&self, other: Self) -> Self {
         Self(self.0 | other.0)
     }
 
     #[inline]
-    pub(crate) const fn and(&self, other: Self) -> Self {
+    pub const fn and(&self, other: Self) -> Self {
         Self(self.0 & other.0)
     }
 
     #[inline]
-    pub(crate) const fn xor(&self, other: Self) -> Self {
+    pub const fn xor(&self, other: Self) -> Self {
         Self(self.0 ^ other.0)
     }
 
     #[inline]
-    pub(crate) const fn ne(&self, other: Self) -> Self {
+    pub const fn ne(&self, other: Self) -> Self {
         Self::xor(self, other)
     }
 
     #[inline]
-    pub(crate) const fn eq(&self, other: Self) -> Self {
+    pub const fn eq(&self, other: Self) -> Self {
         Self::ne(self, other).not()
     }
 
     /// Return `b` if `self` is truthy, otherwise return `a`.
     #[inline]
-    pub(crate) const fn select_word(&self, a: Word, b: Word) -> Word {
+    pub const fn select_word(&self, a: Word, b: Word) -> Word {
         a ^ (self.0 & (a ^ b))
     }
 
     /// Return `b` if `self` is truthy, otherwise return `a`.
     #[inline]
-    pub(crate) const fn select_wide_word(&self, a: WideWord, b: WideWord) -> WideWord {
+    pub const fn select_wide_word(&self, a: WideWord, b: WideWord) -> WideWord {
         let mask = ((self.0 as WideWord) << Word::BITS) | (self.0 as WideWord);
         a ^ (mask & (a ^ b))
     }
 
     /// Return `b` if `self` is truthy, otherwise return `a`.
     #[inline]
-    pub(crate) const fn select_u32(&self, a: u32, b: u32) -> u32 {
+    pub const fn select_u32(&self, a: u32, b: u32) -> u32 {
         a ^ (self.as_u32_mask() & (a ^ b))
     }
 
     /// Return `b` if `self` is truthy, otherwise return `a`.
     #[inline]
-    pub(crate) const fn select_u64(&self, a: u64, b: u64) -> u64 {
+    pub const fn select_u64(&self, a: u64, b: u64) -> u64 {
         a ^ (self.as_u64_mask() & (a ^ b))
+    }
+
+    /// Swap `a` and `b` if `self` is truthy. Otherwise do nothing.
+    #[inline]
+    pub const fn conditional_swap_u32(&self, a: &mut u32, b: &mut u32) {
+        (*a, *b) = (self.select_u32(*a, *b), self.select_u32(*b, *a))
     }
 
     /// Return `x` if `self` is truthy, otherwise return 0.
     #[inline]
-    pub(crate) const fn if_true_word(&self, x: Word) -> Word {
+    pub const fn if_true_word(&self, x: Word) -> Word {
         x & self.0
     }
 
     /// Return `x` if `self` is truthy, otherwise return 0.
     #[inline]
-    pub(crate) const fn if_true_u32(&self, x: u32) -> u32 {
+    pub const fn if_true_u32(&self, x: u32) -> u32 {
         x & self.as_u32_mask()
     }
 
     #[inline]
-    pub(crate) const fn is_true_vartime(&self) -> bool {
+    pub const fn is_true_vartime(&self) -> bool {
         self.0 == ConstChoice::TRUE.0
     }
 
     #[inline]
-    pub(crate) const fn to_u8(self) -> u8 {
+    pub const fn to_u8(self) -> u8 {
         (self.0 as u8) & 1
     }
 
     /// WARNING: this method should only be used in contexts that aren't constant-time critical!
     #[inline]
-    pub(crate) const fn to_bool_vartime(self) -> bool {
+    pub const fn to_bool_vartime(self) -> bool {
         self.to_u8() != 0
     }
 }
@@ -293,12 +299,12 @@ pub struct ConstCtOption<T> {
 
 impl<T> ConstCtOption<T> {
     #[inline]
-    pub(crate) const fn new(value: T, is_some: ConstChoice) -> Self {
+    pub const fn new(value: T, is_some: ConstChoice) -> Self {
         Self { value, is_some }
     }
 
     #[inline]
-    pub(crate) const fn some(value: T) -> Self {
+    pub const fn some(value: T) -> Self {
         Self {
             value,
             is_some: ConstChoice::TRUE,
@@ -306,7 +312,7 @@ impl<T> ConstCtOption<T> {
     }
 
     #[inline]
-    pub(crate) const fn none(dummy_value: T) -> Self {
+    pub const fn none(dummy_value: T) -> Self {
         Self {
             value: dummy_value,
             is_some: ConstChoice::FALSE,
@@ -317,7 +323,7 @@ impl<T> ConstCtOption<T> {
     ///
     /// **Note:** if the second element is `None`, the first value may take any value.
     #[inline]
-    pub(crate) const fn components_ref(&self) -> (&T, ConstChoice) {
+    pub const fn components_ref(&self) -> (&T, ConstChoice) {
         // Since Rust is not smart enough to tell that we would be moving the value,
         // and hence no destructors will be called, we have to return a reference instead.
         // See https://github.com/rust-lang/rust/issues/66753
@@ -345,7 +351,7 @@ impl<T> ConstCtOption<T> {
 
     /// Apply an additional [`ConstChoice`] requirement to `is_some`.
     #[inline]
-    pub(crate) const fn and_choice(mut self, is_some: ConstChoice) -> Self {
+    pub const fn and_choice(mut self, is_some: ConstChoice) -> Self {
         self.is_some = self.is_some.and(is_some);
         self
     }
@@ -413,6 +419,20 @@ impl<const LIMBS: usize> ConstCtOption<(Uint<LIMBS>, Uint<LIMBS>)> {
     }
 }
 
+impl<const LIMBS: usize> ConstCtOption<(Uint<LIMBS>, ConstChoice)> {
+    /// Returns the contained value, consuming the `self` value.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the value is none with a custom panic message provided by
+    /// `msg`.
+    #[inline]
+    pub const fn expect(self, msg: &str) -> (Uint<LIMBS>, ConstChoice) {
+        assert!(self.is_some.is_true_vartime(), "{}", msg);
+        self.value
+    }
+}
+
 impl<const LIMBS: usize> ConstCtOption<NonZero<Uint<LIMBS>>> {
     /// Returns the contained value, consuming the `self` value.
     ///
@@ -456,6 +476,34 @@ impl<const LIMBS: usize> ConstCtOption<Int<LIMBS>> {
     /// `msg`.
     #[inline]
     pub const fn expect(self, msg: &str) -> Int<LIMBS> {
+        assert!(self.is_some.is_true_vartime(), "{}", msg);
+        self.value
+    }
+}
+
+impl<const LIMBS: usize> ConstCtOption<NonZero<Int<LIMBS>>> {
+    /// Returns the contained value, consuming the `self` value.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the value is none with a custom panic message provided by
+    /// `msg`.
+    #[inline]
+    pub const fn expect(self, msg: &str) -> NonZero<Int<LIMBS>> {
+        assert!(self.is_some.is_true_vartime(), "{}", msg);
+        self.value
+    }
+}
+
+impl<const LIMBS: usize> ConstCtOption<Odd<Int<LIMBS>>> {
+    /// Returns the contained value, consuming the `self` value.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the value is none with a custom panic message provided by
+    /// `msg`.
+    #[inline]
+    pub const fn expect(self, msg: &str) -> Odd<Int<LIMBS>> {
         assert!(self.is_some.is_true_vartime(), "{}", msg);
         self.value
     }

@@ -13,7 +13,7 @@ use super::Uint;
 impl<const LIMBS: usize> Uint<LIMBS> {
     /// Return `b` if `c` is truthy, otherwise return `a`.
     #[inline]
-    pub(crate) const fn select(a: &Self, b: &Self, c: ConstChoice) -> Self {
+    pub const fn select(a: &Self, b: &Self, c: ConstChoice) -> Self {
         let mut limbs = [Limb::ZERO; LIMBS];
 
         let mut i = 0;
@@ -27,13 +27,19 @@ impl<const LIMBS: usize> Uint<LIMBS> {
 
     /// Swap `a` and `b` if `c` is truthy, otherwise, do nothing.
     #[inline]
-    pub(crate) const fn conditional_swap(a: &mut Self, b: &mut Self, c: ConstChoice) {
+    pub const fn conditional_swap(a: &mut Self, b: &mut Self, c: ConstChoice) {
         (*a, *b) = (Self::select(a, b, c), Self::select(b, a, c));
+    }
+
+    /// Swap `a` and `b`.
+    #[inline]
+    pub const fn swap(a: &mut Self, b: &mut Self) {
+        Self::conditional_swap(a, b, ConstChoice::TRUE)
     }
 
     /// Returns the truthy value if `self`!=0 or the falsy value otherwise.
     #[inline]
-    pub(crate) const fn is_nonzero(&self) -> ConstChoice {
+    pub const fn is_nonzero(&self) -> ConstChoice {
         let mut b = 0;
         let mut i = 0;
         while i < LIMBS {
@@ -50,7 +56,7 @@ impl<const LIMBS: usize> Uint<LIMBS> {
 
     /// Returns the truthy value if `self == rhs` or the falsy value otherwise.
     #[inline]
-    pub(crate) const fn eq(lhs: &Self, rhs: &Self) -> ConstChoice {
+    pub const fn eq(lhs: &Self, rhs: &Self) -> ConstChoice {
         let mut acc = 0;
         let mut i = 0;
 
@@ -65,7 +71,7 @@ impl<const LIMBS: usize> Uint<LIMBS> {
 
     /// Returns the truthy value if `self < rhs` and the falsy value otherwise.
     #[inline]
-    pub(crate) const fn lt(lhs: &Self, rhs: &Self) -> ConstChoice {
+    pub const fn lt(lhs: &Self, rhs: &Self) -> ConstChoice {
         // We could use the same approach as in Limb::ct_lt(),
         // but since we have to use Uint::wrapping_sub(), which calls `borrowing_sub()`,
         // there are no savings compared to just calling `borrowing_sub()` directly.
@@ -75,13 +81,13 @@ impl<const LIMBS: usize> Uint<LIMBS> {
 
     /// Returns the truthy value if `self <= rhs` and the falsy value otherwise.
     #[inline]
-    pub(crate) const fn lte(lhs: &Self, rhs: &Self) -> ConstChoice {
+    pub const fn lte(lhs: &Self, rhs: &Self) -> ConstChoice {
         Self::gt(lhs, rhs).not()
     }
 
     /// Returns the truthy value if `self > rhs` and the falsy value otherwise.
     #[inline]
-    pub(crate) const fn gt(lhs: &Self, rhs: &Self) -> ConstChoice {
+    pub const fn gt(lhs: &Self, rhs: &Self) -> ConstChoice {
         let (_res, borrow) = rhs.borrowing_sub(lhs, Limb::ZERO);
         ConstChoice::from_word_mask(borrow.0)
     }
@@ -92,7 +98,7 @@ impl<const LIMBS: usize> Uint<LIMBS> {
     ///   0 is Equal
     ///   1 is Greater
     #[inline]
-    pub(crate) const fn cmp(lhs: &Self, rhs: &Self) -> i8 {
+    pub const fn cmp(lhs: &Self, rhs: &Self) -> i8 {
         let mut i = 0;
         let mut borrow = Limb::ZERO;
         let mut diff = Limb::ZERO;
