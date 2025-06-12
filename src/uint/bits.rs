@@ -3,7 +3,7 @@ use subtle::Choice;
 use crate::{BitOps, ConstChoice, Limb, Uint, Word};
 
 #[inline(always)]
-pub(crate) const fn bit(limbs: &[Limb], index: u32) -> ConstChoice {
+pub const fn bit(limbs: &[Limb], index: u32) -> ConstChoice {
     let limb_num = index / Limb::BITS;
     let index_in_limb = index % Limb::BITS;
     let index_mask = 1 << index_in_limb;
@@ -21,7 +21,7 @@ pub(crate) const fn bit(limbs: &[Limb], index: u32) -> ConstChoice {
 }
 
 /// Calculate the number of leading zeros in the binary representation of this number.
-pub(crate) const fn leading_zeros(limbs: &[Limb]) -> u32 {
+pub const fn leading_zeros(limbs: &[Limb]) -> u32 {
     let mut count = 0;
     let mut i = limbs.len();
     let mut nonzero_limb_not_encountered = ConstChoice::TRUE;
@@ -38,7 +38,7 @@ pub(crate) const fn leading_zeros(limbs: &[Limb]) -> u32 {
 }
 
 #[inline(always)]
-pub(crate) const fn bit_vartime(limbs: &[Limb], index: u32) -> bool {
+pub const fn bit_vartime(limbs: &[Limb], index: u32) -> bool {
     let limb_num = (index / Limb::BITS) as usize;
     let index_in_limb = (index % Limb::BITS) as usize;
     if limb_num >= limbs.len() {
@@ -49,7 +49,7 @@ pub(crate) const fn bit_vartime(limbs: &[Limb], index: u32) -> bool {
 }
 
 #[inline(always)]
-pub(crate) const fn bits_vartime(limbs: &[Limb]) -> u32 {
+pub const fn bits_vartime(limbs: &[Limb]) -> u32 {
     let mut i = limbs.len() - 1;
     while i > 0 && limbs[i].0 == 0 {
         i -= 1;
@@ -60,7 +60,7 @@ pub(crate) const fn bits_vartime(limbs: &[Limb]) -> u32 {
 }
 
 #[inline(always)]
-pub(crate) const fn trailing_zeros(limbs: &[Limb]) -> u32 {
+pub const fn trailing_zeros(limbs: &[Limb]) -> u32 {
     let mut count = 0;
     let mut i = 0;
     let mut nonzero_limb_not_encountered = ConstChoice::TRUE;
@@ -77,7 +77,7 @@ pub(crate) const fn trailing_zeros(limbs: &[Limb]) -> u32 {
 }
 
 #[inline(always)]
-pub(crate) const fn trailing_zeros_vartime(limbs: &[Limb]) -> u32 {
+pub const fn trailing_zeros_vartime(limbs: &[Limb]) -> u32 {
     let mut count = 0;
     let mut i = 0;
     while i < limbs.len() {
@@ -94,7 +94,7 @@ pub(crate) const fn trailing_zeros_vartime(limbs: &[Limb]) -> u32 {
 }
 
 #[inline(always)]
-pub(crate) const fn trailing_ones(limbs: &[Limb]) -> u32 {
+pub const fn trailing_ones(limbs: &[Limb]) -> u32 {
     let mut count = 0;
     let mut i = 0;
     let mut nonmax_limb_not_encountered = ConstChoice::TRUE;
@@ -111,7 +111,7 @@ pub(crate) const fn trailing_ones(limbs: &[Limb]) -> u32 {
 }
 
 #[inline(always)]
-pub(crate) const fn trailing_ones_vartime(limbs: &[Limb]) -> u32 {
+pub const fn trailing_ones_vartime(limbs: &[Limb]) -> u32 {
     let mut count = 0;
     let mut i = 0;
     while i < limbs.len() {
@@ -189,7 +189,7 @@ impl<const LIMBS: usize> Uint<LIMBS> {
     }
 
     /// Sets the bit at `index` to 0 or 1 depending on the value of `bit_value`.
-    pub(crate) const fn set_bit(self, index: u32, bit_value: ConstChoice) -> Self {
+    pub const fn set_bit(self, index: u32, bit_value: ConstChoice) -> Self {
         let mut result = self;
         let limb_num = index / Limb::BITS;
         let index_in_limb = index % Limb::BITS;
@@ -208,7 +208,7 @@ impl<const LIMBS: usize> Uint<LIMBS> {
 
     /// Sets the bit at `index` to 0 or 1 depending on the value of `bit_value`,
     /// variable time in `self`.
-    pub(crate) const fn set_bit_vartime(self, index: u32, bit_value: bool) -> Self {
+    pub const fn set_bit_vartime(self, index: u32, bit_value: bool) -> Self {
         let mut result = self;
         let limb_num = (index / Limb::BITS) as usize;
         let index_in_limb = index % Limb::BITS;
