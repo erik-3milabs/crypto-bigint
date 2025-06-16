@@ -54,6 +54,11 @@ impl<const LIMBS: usize> Uint<LIMBS> {
         ConstChoice::from_word_lsb(self.limbs[0].0 & 1)
     }
 
+    /// Returns the truthy value if `self` is odd or the falsy value otherwise.
+    pub const fn is_odd_const(&self) -> ConstChoice {
+        self.is_odd()
+    }
+
     /// Returns the truthy value if `self == rhs` or the falsy value otherwise.
     #[inline]
     pub const fn eq(lhs: &Self, rhs: &Self) -> ConstChoice {
