@@ -24,8 +24,6 @@ impl<const LIMBS: usize> NonZero<Uint<LIMBS>> {
 }
 
 impl<const LIMBS: usize> Odd<Uint<LIMBS>> {
-    const BITS: u32 = Uint::<LIMBS>::BITS;
-
     /// Compute the greatest common divisor of `self` and `rhs` using the Binary GCD algorithm.
     ///
     /// This function switches between the "classic" and "optimized" algorithm at a best-effort
