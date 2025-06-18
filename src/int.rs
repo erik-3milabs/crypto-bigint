@@ -150,11 +150,16 @@ impl<const LIMBS: usize> Int<LIMBS> {
         ConstCtOption::new(NonZero(self), self.0.is_nonzero())
     }
 
+    /// Whether this [`Int`] is odd.
+    pub const fn is_odd(self) -> ConstChoice {
+        self.0.is_odd()
+    }
+
     /// Convert to a [`Odd<Int<LIMBS>>`].
     ///
     /// Returns some if the original value is odd, and false otherwise.
     pub const fn to_odd(self) -> ConstCtOption<Odd<Self>> {
-        ConstCtOption::new(Odd(self), self.0.is_odd())
+        ConstCtOption::new(Odd(self), self.is_odd())
     }
 
     /// Interpret the data in this object as a [`Uint`] instead.
