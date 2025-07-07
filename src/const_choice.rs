@@ -231,6 +231,12 @@ impl ConstChoice {
         a ^ (self.as_u64_mask() & (a ^ b))
     }
 
+    /// Swap `a` and `b` if `self` is truthy. Otherwise do nothing.
+    #[inline]
+    pub const fn conditional_swap_u32(&self, a: &mut u32, b: &mut u32) {
+        (*a, *b) = (self.select_u32(*a, *b), self.select_u32(*b, *a))
+    }
+
     /// Return `x` if `self` is truthy, otherwise return 0.
     #[inline]
     pub const fn if_true_word(&self, x: Word) -> Word {
