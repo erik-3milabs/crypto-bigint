@@ -26,7 +26,7 @@ impl<const LIMBS: usize> Uint<LIMBS> {
     /// Executes the Binary Extended GCD algorithm.
     ///
     /// Given `(self, rhs)`, computes `(g, x, y)`, s.t. `self * x + rhs * y = g = gcd(self, rhs)`.
-    pub fn binxgcd(&self, rhs: &Self) -> UintXgcdOutput<LIMBS> {
+    pub(crate) fn binxgcd(&self, rhs: &Self) -> UintXgcdOutput<LIMBS> {
         // Make sure `self` and `rhs` are nonzero.
         let self_is_zero = self.is_nonzero().not();
         let self_nz = NonZero(Uint::select(self, &Uint::ONE, self_is_zero));
@@ -110,7 +110,7 @@ impl<const LIMBS: usize> NonZeroUint<LIMBS> {
     /// Execute the Binary Extended GCD algorithm.
     ///
     /// Given `(self, rhs)`, computes `(g, x, y)` s.t. `self * x + rhs * y = g = gcd(self, rhs)`.
-    pub fn binxgcd(&self, rhs: &Self) -> NonZeroUintXgcdOutput<LIMBS> {
+    pub(crate) fn binxgcd(&self, rhs: &Self) -> NonZeroUintXgcdOutput<LIMBS> {
         let (mut lhs, mut rhs) = (*self.as_ref(), *rhs.as_ref());
 
         // Observe that gcd(2^i · a, 2^j · b) = 2^k * gcd(2^(i-k)·a, 2^(j-k)·b), with k = min(i,j).
@@ -187,43 +187,43 @@ impl<const LIMBS: usize> OddUint<LIMBS> {
     /// Execute the Binary Extended GCD algorithm.
     ///
     /// Given `(self, rhs)`, computes `(g, x, y)` s.t. `self * x + rhs * y = g = gcd(self, rhs)`.
-    pub const fn binxgcd(&self, rhs: &Self) -> OddUintXgcdOutput<LIMBS> {
+    pub(crate) const fn binxgcd(&self, rhs: &Self) -> OddUintXgcdOutput<LIMBS> {
         OddUintXgcdOutput::from_pattern_output(self.classic_binxgcd(rhs).divide())
     }
 }
 
-pub type UintXgcdOutput<const LIMBS: usize> = XgcdOutput<LIMBS, Uint<LIMBS>>;
-pub type NonZeroUintXgcdOutput<const LIMBS: usize> = XgcdOutput<LIMBS, NonZeroUint<LIMBS>>;
-pub type OddUintXgcdOutput<const LIMBS: usize> = XgcdOutput<LIMBS, OddUint<LIMBS>>;
+pub(crate) type UintXgcdOutput<const LIMBS: usize> = XgcdOutput<LIMBS, Uint<LIMBS>>;
+pub(crate) type NonZeroUintXgcdOutput<const LIMBS: usize> = XgcdOutput<LIMBS, NonZeroUint<LIMBS>>;
+pub(crate) type OddUintXgcdOutput<const LIMBS: usize> = XgcdOutput<LIMBS, OddUint<LIMBS>>;
 
 /// Container for the processed output of the Binary XGCD algorithm.
 #[derive(Debug, Copy, Clone)]
-pub struct XgcdOutput<const LIMBS: usize, GCD: Copy> {
+pub(crate) struct XgcdOutput<const LIMBS: usize, GCD: Copy> {
     /// Greatest common divisor
-    pub gcd: GCD,
+    pub(crate) gcd: GCD,
     /// x;
-    pub x: Int<LIMBS>,
+    pub(crate) x: Int<LIMBS>,
     /// y;
-    pub y: Int<LIMBS>,
+    pub(crate) y: Int<LIMBS>,
     /// lhs / gcd
-    pub lhs_on_gcd: Uint<LIMBS>,
+    pub(crate) lhs_on_gcd: Uint<LIMBS>,
     /// rhs / gcd
-    pub rhs_on_gcd: Uint<LIMBS>,
+    pub(crate) rhs_on_gcd: Uint<LIMBS>,
 }
 
 impl<const LIMBS: usize, GCD: Copy> XgcdOutput<LIMBS, GCD> {
     /// The greatest common divisor stored in this object.
-    pub const fn gcd(&self) -> GCD {
+    pub(crate) const fn gcd(&self) -> GCD {
         self.gcd
     }
 
     /// Obtain a copy of the Bézout coefficients.
-    pub const fn bezout_coefficients(&self) -> (Int<LIMBS>, Int<LIMBS>) {
+    pub(crate) const fn bezout_coefficients(&self) -> (Int<LIMBS>, Int<LIMBS>) {
         (self.x, self.y)
     }
 
     /// Obtain a copy of the quotients `lhs/gcd` and `rhs/gcd`.
-    pub const fn quotients(&self) -> (Uint<LIMBS>, Uint<LIMBS>) {
+    pub(crate) const fn quotients(&self) -> (Uint<LIMBS>, Uint<LIMBS>) {
         (self.lhs_on_gcd, self.rhs_on_gcd)
     }
 }
