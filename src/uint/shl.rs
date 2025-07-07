@@ -140,7 +140,7 @@ impl<const LIMBS: usize> Uint<LIMBS> {
     /// Computes `self << shift` where `0 <= shift < Limb::BITS`,
     /// returning the result and the carry.
     #[inline(always)]
-    pub(crate) const fn shl_limb(&self, shift: u32) -> (Self, Limb) {
+    pub const fn shl_limb(&self, shift: u32) -> (Self, Limb) {
         let mut limbs = [Limb::ZERO; LIMBS];
 
         let nz = ConstChoice::from_u32_nonzero(shift);
@@ -164,7 +164,7 @@ impl<const LIMBS: usize> Uint<LIMBS> {
     /// Computes `self << 1` in constant-time, returning [`ConstChoice::TRUE`]
     /// if the most significant bit was set, and [`ConstChoice::FALSE`] otherwise.
     #[inline(always)]
-    pub(crate) const fn overflowing_shl1(&self) -> (Self, Limb) {
+    pub const fn overflowing_shl1(&self) -> (Self, Limb) {
         let mut ret = Self::ZERO;
         let mut i = 0;
         let mut carry = Limb::ZERO;
