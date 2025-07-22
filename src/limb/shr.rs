@@ -13,7 +13,7 @@ impl Limb {
 
     /// Computes `self >> 1` and return the result and the carry (0 or `1 << HI_BIT`).
     #[inline(always)]
-    pub(crate) const fn shr1(self) -> (Self, Self) {
+    pub const fn shr1(self) -> (Self, Self) {
         (Self(self.0 >> 1), Self(self.0 << Self::HI_BIT))
     }
 }

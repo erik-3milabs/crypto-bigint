@@ -22,7 +22,7 @@ impl<const LIMBS: usize> Int<LIMBS> {
     /// Executes the Binary Extended GCD algorithm.
     ///
     /// Given `(self, rhs)`, computes `(g, x, y)`, s.t. `self * x + rhs * y = g = gcd(self, rhs)`.
-    pub const fn binxgcd(&self, rhs: &Self) -> IntXgcdOutput<LIMBS> {
+    pub(crate) const fn binxgcd(&self, rhs: &Self) -> IntXgcdOutput<LIMBS> {
         // Make sure `self` and `rhs` are nonzero.
         let self_is_zero = self.is_nonzero().not();
         let self_nz = Int::select(self, &Int::ONE, self_is_zero)
@@ -86,7 +86,7 @@ impl<const LIMBS: usize> NonZero<Int<LIMBS>> {
     /// Execute the Binary Extended GCD algorithm.
     ///
     /// Given `(self, rhs)`, computes `(g, x, y)` s.t. `self * x + rhs * y = g = gcd(self, rhs)`.
-    pub const fn binxgcd(&self, rhs: &Self) -> NonZeroIntXgcdOutput<LIMBS> {
+    pub(crate) const fn binxgcd(&self, rhs: &Self) -> NonZeroIntXgcdOutput<LIMBS> {
         let (mut lhs, mut rhs) = (*self.as_ref(), *rhs.as_ref());
 
         // Leverage the property that gcd(2^k * a, 2^k *b) = 2^k * gcd(a, b)
@@ -148,7 +148,7 @@ impl<const LIMBS: usize> Odd<Int<LIMBS>> {
     /// Execute the Binary Extended GCD algorithm.
     ///
     /// Given `(self, rhs)`, computes `(g, x, y)` s.t. `self * x + rhs * y = g = gcd(self, rhs)`.
-    pub const fn binxgcd(&self, rhs: &NonZero<Int<LIMBS>>) -> OddIntXgcdOutput<LIMBS> {
+    pub(crate) const fn binxgcd(&self, rhs: &NonZero<Int<LIMBS>>) -> OddIntXgcdOutput<LIMBS> {
         let (abs_lhs, sgn_lhs) = self.abs_sign();
         let (abs_rhs, sgn_rhs) = rhs.abs_sign();
 
@@ -176,16 +176,16 @@ impl<const LIMBS: usize> Odd<Int<LIMBS>> {
 }
 
 /// Output of the Binary XGCD algorithm applied to two [Int]s.
-pub type IntXgcdOutput<const LIMBS: usize> = XgcdOutput<LIMBS, Uint<LIMBS>>;
+pub(crate) type IntXgcdOutput<const LIMBS: usize> = XgcdOutput<LIMBS, Uint<LIMBS>>;
 
 /// Output of the Binary XGCD algorithm applied to two [`NonZero<Int<LIMBS>>`]s.
-pub type NonZeroIntXgcdOutput<const LIMBS: usize> = XgcdOutput<LIMBS, NonZeroUint<LIMBS>>;
+pub(crate) type NonZeroIntXgcdOutput<const LIMBS: usize> = XgcdOutput<LIMBS, NonZeroUint<LIMBS>>;
 
 /// Output of the Binary XGCD algorithm applied to two [`Odd<Int<LIMBS>>`]s.
-pub type OddIntXgcdOutput<const LIMBS: usize> = XgcdOutput<LIMBS, OddUint<LIMBS>>;
+pub(crate) type OddIntXgcdOutput<const LIMBS: usize> = XgcdOutput<LIMBS, OddUint<LIMBS>>;
 
 #[derive(Debug, Copy, Clone)]
-pub struct XgcdOutput<const LIMBS: usize, T: Copy> {
+pub(crate) struct XgcdOutput<const LIMBS: usize, T: Copy> {
     pub gcd: T,
     pub x: Int<LIMBS>,
     pub y: Int<LIMBS>,

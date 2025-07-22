@@ -13,7 +13,7 @@ impl<const LIMBS: usize> Int<LIMBS> {
     ///
     /// Computes the quotient and remainder of `self / rhs`.
     /// Furthermore, returns the signs of `self` and `rhs`.
-    const fn div_rem_base<const RHS_LIMBS: usize>(
+    pub const fn div_rem_base<const RHS_LIMBS: usize>(
         &self,
         rhs: &NonZero<Int<RHS_LIMBS>>,
     ) -> (Uint<LIMBS>, Uint<RHS_LIMBS>, ConstChoice, ConstChoice) {
